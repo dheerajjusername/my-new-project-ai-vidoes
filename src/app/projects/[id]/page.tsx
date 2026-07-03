@@ -19,6 +19,7 @@ type Project = {
   format: string;
   customFormat: string | null;
   status: string;
+  voiceoverUrl: string | null;
   character: { id: string; name: string; referenceImages: string[] };
   shots: Shot[];
 };
@@ -32,6 +33,8 @@ export default function ProjectDetailPage({
   const [project, setProject] = useState<Project | null>(null);
   const [planning, setPlanning] = useState(false);
   const [generatingShotId, setGeneratingShotId] = useState<string | null>(null);
+  const [voScript, setVoScript] = useState("");
+  const [voGenerating, setVoGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -76,6 +79,25 @@ export default function ProjectDetailPage({
       setError("Could not reach the server.");
     } finally {
       setGeneratingShotId(null);
+    }
+  }
+
+  async function generateVoiceover() {
+    setVoGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/voiceover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: voScript }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setVoGenerating(false);
     }
   }
 
@@ -148,6 +170,46 @@ export default function ProjectDetailPage({
               brief into a scene-by-scene plan.
             </p>
           )}
+
+          {/* Voiceover */}
+          <div className="mt-8 rounded-xl border border-neutral-200 p-5">
+            <h3 className="font-medium">Voiceover (ElevenLabs)</h3>
+            <p className="mt-1 text-xs text-neutral-500">
+              Optional narration for the final video. Cost: roughly $0.10 per
+              1000 characters — keep it short.
+            </p>
+            <textarea
+              value={voScript}
+              onChange={(e) => setVoScript(e.target.value)}
+              rows={3}
+              maxLength={2500}
+              placeholder="e.g. Garam Adrak — ghar wali chai, sirf do minute mein."
+              className="mt-3 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            />
+            <div className="mt-3 flex items-center gap-4">
+              <button
+                onClick={generateVoiceover}
+                disabled={voGenerating || voScript.trim().length === 0}
+                className="rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {voGenerating
+                  ? "Generating voice…"
+                  : project.voiceoverUrl
+                    ? "Regenerate voiceover"
+                    : "Generate voiceover"}
+              </button>
+              <span className="text-xs text-neutral-400">
+                {voScript.length}/2500
+              </span>
+            </div>
+            {project.voiceoverUrl && (
+              <audio
+                src={project.voiceoverUrl}
+                controls
+                className="mt-4 w-full max-w-xl"
+              />
+            )}
+          </div>
 
           <div className="mt-6 space-y-4">
             {project.shots.map((shot) => (
