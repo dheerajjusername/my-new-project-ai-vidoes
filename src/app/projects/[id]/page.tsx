@@ -1,0 +1,212 @@
+"use client";
+
+import { use, useCallback, useEffect, useState } from "react";
+
+type Shot = {
+  id: string;
+  orderIndex: number;
+  prompt: string;
+  status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
+  videoUrl: string | null;
+  durationSec: number | null;
+  lastError: string | null;
+};
+
+type Project = {
+  id: string;
+  title: string;
+  brief: string;
+  format: string;
+  customFormat: string | null;
+  status: string;
+  character: { id: string; name: string; referenceImages: string[] };
+  shots: Shot[];
+};
+
+export default function ProjectDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const [project, setProject] = useState<Project | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [generatingShotId, setGeneratingShotId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${id}`);
+      if (res.ok) setProject((await res.json()).project);
+    } catch {
+      // keep current state
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function generateShotList() {
+    setPlanning(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/generate-shots`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setPlanning(false);
+    }
+  }
+
+  async function generateShot(shotId: string) {
+    setGeneratingShotId(shotId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/shots/${shotId}/generate`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setGeneratingShotId(null);
+    }
+  }
+
+  if (!project) {
+    return (
+      <div className="flex-1 bg-white p-12 text-neutral-500">Loading…</div>
+    );
+  }
+
+  return (
+    <div className="flex-1 bg-white text-neutral-900">
+      <header className="border-b border-neutral-200">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+          <a href="/" className="text-lg font-semibold tracking-tight">
+            AdCharacter
+          </a>
+          <nav className="flex gap-6 text-sm text-neutral-600">
+            <a href="/characters" className="hover:text-neutral-900">
+              Characters
+            </a>
+            <a href="/projects" className="hover:text-neutral-900">
+              Projects
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-6 py-12">
+        <a href="/projects" className="text-sm text-neutral-500 hover:text-neutral-900">
+          ← All projects
+        </a>
+        <div className="mt-3 flex items-center justify-between">
+          <h1 className="text-3xl font-semibold tracking-tight">{project.title}</h1>
+          <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">
+            {project.status.replaceAll("_", " ")}
+          </span>
+        </div>
+        <p className="mt-2 max-w-2xl text-neutral-600">{project.brief}</p>
+        <p className="mt-1 text-sm text-neutral-500">
+          Character: {project.character.name} · Format:{" "}
+          {project.format.replaceAll("_", " ").toLowerCase()}
+          {project.customFormat ? ` — ${project.customFormat}` : ""}
+        </p>
+
+        {error && (
+          <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Shots</h2>
+            <button
+              onClick={generateShotList}
+              disabled={planning || project.shots.some((s) => s.status !== "PENDING")}
+              className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+            >
+              {planning
+                ? "Claude is planning the scenes…"
+                : project.shots.length > 0
+                  ? "Regenerate shot list"
+                  : "Generate shot list with AI"}
+            </button>
+          </div>
+
+          {project.shots.length === 0 && !planning && (
+            <p className="mt-4 text-sm text-neutral-500">
+              No shots yet. Click the button above and Claude will turn your
+              brief into a scene-by-scene plan.
+            </p>
+          )}
+
+          <div className="mt-6 space-y-4">
+            {project.shots.map((shot) => (
+              <div
+                key={shot.id}
+                className="rounded-xl border border-neutral-200 p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-medium text-neutral-400">
+                      SHOT {shot.orderIndex + 1} · {shot.durationSec ?? 8}s
+                    </span>
+                    <p className="mt-1 text-sm text-neutral-700">{shot.prompt}</p>
+                    {shot.lastError && (
+                      <p className="mt-2 text-xs text-red-600">{shot.lastError}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <span
+                      className={
+                        "rounded-full px-3 py-1 text-xs font-medium " +
+                        (shot.status === "COMPLETED"
+                          ? "bg-green-100 text-green-800"
+                          : shot.status === "FAILED"
+                            ? "bg-red-100 text-red-800"
+                            : shot.status === "GENERATING"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-neutral-100 text-neutral-700")
+                      }
+                    >
+                      {shot.status}
+                    </span>
+                    {shot.status !== "GENERATING" && (
+                      <button
+                        onClick={() => generateShot(shot.id)}
+                        disabled={generatingShotId !== null}
+                        className="rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-50"
+                      >
+                        {generatingShotId === shot.id
+                          ? "Generating (~1-2 min)…"
+                          : shot.status === "COMPLETED"
+                            ? "Regenerate (~$0.40)"
+                            : "Generate video (~$0.40)"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {shot.videoUrl && (
+                  <video
+                    src={shot.videoUrl}
+                    controls
+                    className="mt-4 w-full max-w-xl rounded-lg border border-neutral-200"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
