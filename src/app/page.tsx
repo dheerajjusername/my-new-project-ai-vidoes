@@ -64,7 +64,7 @@ export default function Home() {
             </a>
           </nav>
           <a
-            href="#"
+            href="/characters"
             className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
           >
             Get started
@@ -83,7 +83,7 @@ export default function Home() {
         </p>
         <div className="mt-10 flex justify-center gap-4">
           <a
-            href="#"
+            href="/characters"
             className="rounded-full bg-neutral-900 px-6 py-3 text-sm font-medium text-white hover:bg-neutral-700"
           >
             Create your character
