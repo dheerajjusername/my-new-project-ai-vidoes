@@ -1,14 +1,13 @@
 import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaNeonHttp } from "@prisma/adapter-neon";
 
-// Reuse a single PrismaClient across hot reloads in development,
-// otherwise every code change would open new database connections.
+// Neon's HTTP driver works over HTTPS (port 443), which makes it usable both
+// on serverless hosts and in sandboxed environments where raw Postgres
+// connections (port 5432) are blocked.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createClient() {
-  const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
-  });
+  const adapter = new PrismaNeonHttp(process.env.DATABASE_URL ?? "", {});
   return new PrismaClient({ adapter });
 }
 
