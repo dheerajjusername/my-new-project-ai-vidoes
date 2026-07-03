@@ -6,11 +6,13 @@ Create an AI character once, reuse it across unlimited AI-generated video ads.
 
 - **Next.js** — frontend + backend (App Router)
 - **PostgreSQL + Prisma** — database
-- **Veo 3.1 Lite** (Gemini API) — video generation
-- **Nano Banana 2** (`gemini-3.1-flash-image`) — character reference images
+- **Veo 3.1 Lite** (via fal.ai) — video generation
+- **Nano Banana 2** (via fal.ai) — character reference images
+- **ElevenLabs TTS** (via fal.ai) — voiceover
 - **Claude API** — turns a user brief into a scene-by-scene shot list
-- **ElevenLabs** — voiceover
 - **FFmpeg** — stitches shots into a final video
+
+Video, image and voice models are all accessed through a single fal.ai API key.
 
 ## Getting started
 
