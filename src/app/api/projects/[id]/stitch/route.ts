@@ -34,16 +34,29 @@ export async function POST(
     data: { status: "STITCHING" },
   });
 
+  // If the character speaks in any shot, mixing a narration voiceover on top
+  // would produce two competing voices — skip it in that case.
+  const hasDialogue = project.shots.some((s) => s.dialogue);
+  const voiceoverSkipped = Boolean(hasDialogue && project.voiceoverUrl);
+
   try {
     const finalVideoUrl = await stitchProjectVideo({
       clipUrls: project.shots.map((s) => s.videoUrl!),
-      voiceoverUrl: project.voiceoverUrl,
+      voiceoverUrl: voiceoverSkipped ? null : project.voiceoverUrl,
     });
     const updated = await prisma.project.update({
       where: { id: project.id },
       data: { finalVideoUrl, status: "COMPLETED" },
     });
-    return Response.json({ project: updated });
+    return Response.json({
+      project: updated,
+      ...(voiceoverSkipped
+        ? {
+            warning:
+              "Narration voiceover was not mixed in because the character already speaks in the shots.",
+          }
+        : {}),
+    });
   } catch (error) {
     await prisma.project.update({
       where: { id: project.id },

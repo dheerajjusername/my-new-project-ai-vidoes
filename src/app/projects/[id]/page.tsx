@@ -238,6 +238,14 @@ export default function ProjectDetailPage({
               Optional narration for the final video. Cost: roughly $0.10 per
               1000 characters — keep it short.
             </p>
+            {project.shots.some((s) => s.dialogue) && (
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                ⚠️ Is project ke shots mein character khud bolta hai, isliye
+                narration final video mein mix <b>nahi</b> hogi (do awaazein
+                takrati hain). Narration sirf bina-dialogue formats ke liye hai
+                (jaise Static Storytelling).
+              </p>
+            )}
             <textarea
               value={voScript}
               onChange={(e) => setVoScript(e.target.value)}
