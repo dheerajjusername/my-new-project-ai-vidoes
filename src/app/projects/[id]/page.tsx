@@ -21,6 +21,7 @@ type Project = {
   customFormat: string | null;
   status: string;
   voiceoverUrl: string | null;
+  finalVideoUrl: string | null;
   character: { id: string; name: string; referenceImages: string[] };
   shots: Shot[];
 };
@@ -37,6 +38,7 @@ export default function ProjectDetailPage({
   const [voScript, setVoScript] = useState("");
   const [voLanguage, setVoLanguage] = useState("hi");
   const [voGenerating, setVoGenerating] = useState(false);
+  const [stitching, setStitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -103,11 +105,30 @@ export default function ProjectDetailPage({
     }
   }
 
+  async function createFinalVideo() {
+    setStitching(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/stitch`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setStitching(false);
+    }
+  }
+
   if (!project) {
     return (
       <div className="flex-1 bg-white p-12 text-neutral-500">Loading…</div>
     );
   }
+
+  const allShotsDone =
+    project.shots.length > 0 &&
+    project.shots.every((s) => s.status === "COMPLETED");
 
   return (
     <div className="flex-1 bg-white text-neutral-900">
@@ -149,6 +170,43 @@ export default function ProjectDetailPage({
             {error}
           </p>
         )}
+
+        {/* Final video */}
+        <div className="mt-8 rounded-xl border-2 border-neutral-900 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Final video</h2>
+              <p className="mt-1 text-xs text-neutral-500">
+                Joins every shot (plus the voiceover, if you made one) into one
+                video. This step is free.
+              </p>
+            </div>
+            <button
+              onClick={createFinalVideo}
+              disabled={stitching || !allShotsDone}
+              className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+            >
+              {stitching
+                ? "Stitching…"
+                : project.finalVideoUrl
+                  ? "Rebuild final video"
+                  : "Create final video"}
+            </button>
+          </div>
+          {!allShotsDone && (
+            <p className="mt-2 text-xs text-amber-600">
+              Generate all shots first — the button unlocks when every shot is
+              completed.
+            </p>
+          )}
+          {project.finalVideoUrl && (
+            <video
+              src={project.finalVideoUrl}
+              controls
+              className="mt-4 w-full max-w-2xl rounded-lg border border-neutral-200"
+            />
+          )}
+        </div>
 
         <div className="mt-8">
           <div className="flex items-center justify-between">
