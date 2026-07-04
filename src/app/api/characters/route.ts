@@ -2,7 +2,10 @@
 export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
-import { generateCharacterReferenceImages } from "@/lib/character-images";
+import {
+  generateCharacterReferenceImages,
+  generateCharacterReferenceImagesFromPhoto,
+} from "@/lib/character-images";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
 
@@ -21,10 +24,13 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const description =
     typeof body?.description === "string" ? body.description.trim() : "";
+  const photoUrl =
+    typeof body?.photoUrl === "string" && body.photoUrl ? body.photoUrl : null;
 
-  if (!name || !description) {
+  // Either a text description or an uploaded photo is required.
+  if (!name || (!description && !photoUrl)) {
     return Response.json(
-      { error: "name and description are required" },
+      { error: "name and either a description or a photo are required" },
       { status: 400 },
     );
   }
@@ -37,11 +43,18 @@ export async function POST(request: Request) {
   }
 
   const character = await prisma.character.create({
-    data: { userId: user.id, name, description, status: "GENERATING" },
+    data: {
+      userId: user.id,
+      name,
+      description: description || "Character from an uploaded photo",
+      status: "GENERATING",
+    },
   });
 
   try {
-    const referenceImages = await generateCharacterReferenceImages(description);
+    const referenceImages = photoUrl
+      ? await generateCharacterReferenceImagesFromPhoto(photoUrl, description)
+      : await generateCharacterReferenceImages(description);
     const ready = await prisma.character.update({
       where: { id: character.id },
       data: { referenceImages, status: "READY" },

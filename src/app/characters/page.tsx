@@ -15,8 +15,11 @@ type Character = {
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [mode, setMode] = useState<"describe" | "photo">("describe");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,15 +39,42 @@ export default function CharactersPage() {
     loadCharacters();
   }, [loadCharacters]);
 
+  function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setPhotoFile(file);
+    setPhotoPreview(file ? URL.createObjectURL(file) : null);
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
     setError(null);
     try {
+      let photoUrl: string | null = null;
+
+      // Photo mode: upload the image first, then create from its URL.
+      if (mode === "photo") {
+        if (!photoFile) {
+          setError("Please choose a photo.");
+          setCreating(false);
+          return;
+        }
+        const fd = new FormData();
+        fd.append("file", photoFile);
+        const up = await fetch("/api/upload", { method: "POST", body: fd });
+        const upData = await up.json();
+        if (!up.ok) {
+          setError(upData.error ?? "Photo upload failed");
+          setCreating(false);
+          return;
+        }
+        photoUrl = upData.url;
+      }
+
       const res = await fetch("/api/characters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, photoUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -52,6 +82,8 @@ export default function CharactersPage() {
       } else {
         setName("");
         setDescription("");
+        setPhotoFile(null);
+        setPhotoPreview(null);
         await loadCharacters();
       }
     } catch {
@@ -68,8 +100,9 @@ export default function CharactersPage() {
       <main className="mx-auto max-w-6xl px-6 py-12">
         <h1 className="text-3xl font-semibold tracking-tight">Your characters</h1>
         <p className="mt-2 text-neutral-400">
-          Describe a character once — we generate 5 reference images from
-          different angles so the face stays consistent in every video.
+          Create a character from a text description or a real photo — we
+          generate 5 reference images from different angles so the face stays
+          consistent in every video.
         </p>
 
         {/* Create form */}
@@ -78,6 +111,25 @@ export default function CharactersPage() {
           className="mt-8 max-w-xl glass rounded-2xl p-6"
         >
           <h2 className="font-medium">Create a new character</h2>
+
+          {/* Mode toggle */}
+          <div className="mt-4 flex rounded-lg bg-white/5 p-1 text-sm font-medium">
+            <button
+              type="button"
+              onClick={() => setMode("describe")}
+              className={`flex-1 rounded-md py-1.5 ${mode === "describe" ? "bg-white text-black" : "text-neutral-400"}`}
+            >
+              Describe
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("photo")}
+              className={`flex-1 rounded-md py-1.5 ${mode === "photo" ? "bg-white text-black" : "text-neutral-400"}`}
+            >
+              Upload a photo
+            </button>
+          </div>
+
           <label className="mt-4 block text-sm font-medium" htmlFor="name">
             Name
           </label>
@@ -89,16 +141,47 @@ export default function CharactersPage() {
             placeholder="e.g. Priya"
             className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
+
+          {mode === "photo" && (
+            <>
+              <label className="mt-4 block text-sm font-medium" htmlFor="photo">
+                Photo of the person
+              </label>
+              <input
+                id="photo"
+                type="file"
+                accept="image/*"
+                onChange={onPickPhoto}
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-neutral-300 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1 file:text-xs file:text-white"
+              />
+              {photoPreview && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoPreview}
+                  alt="preview"
+                  className="mt-3 h-28 w-28 rounded-lg border border-white/10 object-cover"
+                />
+              )}
+            </>
+          )}
+
           <label className="mt-4 block text-sm font-medium" htmlFor="description">
-            Description
+            Description{" "}
+            {mode === "photo" && (
+              <span className="font-normal text-neutral-500">(optional — extra details)</span>
+            )}
           </label>
           <textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            required
+            required={mode === "describe"}
             rows={4}
-            placeholder="e.g. Indian woman in her late 20s, shoulder-length black hair, warm smile, wearing a mustard yellow kurta"
+            placeholder={
+              mode === "photo"
+                ? "e.g. wearing a formal blazer, confident expression"
+                : "e.g. Indian woman in her late 20s, shoulder-length black hair, warm smile, wearing a mustard yellow kurta"
+            }
             className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
           <button
@@ -106,7 +189,9 @@ export default function CharactersPage() {
             disabled={creating}
             className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
           >
-            {creating ? "Generating 5 reference images…" : "Create character"}
+            {creating
+              ? "Generating 5 reference images…"
+              : "Create character (25 credits)"}
           </button>
           {creating && (
             <p className="mt-3 text-sm text-neutral-500">
