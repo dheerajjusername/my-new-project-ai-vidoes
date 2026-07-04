@@ -3,7 +3,18 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
-import { stitchProjectVideo, stitchStaticVideo } from "@/lib/stitch";
+import { stitchProjectVideo, stitchStaticVideo, type WordTime } from "@/lib/stitch";
+
+// Parse the saved voiceover word timestamps (JSON) back into an array.
+function parseWords(raw: string | null): WordTime[] | null {
+  if (!raw) return null;
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? (arr as WordTime[]) : null;
+  } catch {
+    return null;
+  }
+}
 
 // Joins all completed shots (plus optional voiceover) into the final video.
 // FFmpeg runs locally, so this step itself costs nothing.
@@ -57,9 +68,14 @@ export async function POST(
   try {
     const finalVideoUrl = isStatic
       ? await stitchStaticVideo({
-          imageUrls: project.shots.map((s) => s.videoUrl!),
+          images: project.shots.map((s) => ({
+            url: s.videoUrl!,
+            narrationText: s.narrationText,
+          })),
           voiceoverUrl: project.voiceoverUrl!,
           aspectRatio: project.aspectRatio,
+          transition: project.transition,
+          voiceoverWords: parseWords(project.voiceoverWords),
         })
       : await stitchProjectVideo({
           shots: project.shots.map((s) => ({

@@ -13,6 +13,7 @@ type Shot = {
   type: "VIDEO" | "IMAGE";
   cameraAngle: string | null;
   prompt: string;
+  narrationText: string | null;
   dialogue: string | null;
   status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
   videoUrl: string | null;
@@ -28,6 +29,7 @@ type Project = {
   customFormat: string | null;
   aspectRatio: string;
   imageStyle: string;
+  transition: string;
   narrationScript: string | null;
   pronunciationFixes: string | null;
   status: string;
@@ -751,6 +753,11 @@ export default function ProjectDetailPage({
                       {shot.cameraAngle ? ` · ${shot.cameraAngle}` : ""}
                     </span>
                     <p className="mt-1 text-sm text-neutral-300">{shot.prompt}</p>
+                    {shot.narrationText && (
+                      <p className="mt-1.5 text-xs text-violet-300/90">
+                        🎙️ Line: &ldquo;{shot.narrationText}&rdquo;
+                      </p>
+                    )}
                     {shot.dialogue && (
                       <p className="mt-2 text-sm text-neutral-100">
                         🗣️ <span className="italic">&ldquo;{shot.dialogue}&rdquo;</span>

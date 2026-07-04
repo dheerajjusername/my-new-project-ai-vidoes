@@ -39,6 +39,9 @@ export async function POST(request: Request) {
   const imageStyle = isValidImageStyle(body?.imageStyle)
     ? (body.imageStyle as string)
     : DEFAULT_IMAGE_STYLE;
+  const transition = ["fade", "fadewhite", "cut"].includes(body?.transition)
+    ? (body.transition as string)
+    : "fade";
 
   if (!title || !brief || !characterId || !format) {
     return Response.json(
@@ -78,6 +81,7 @@ export async function POST(request: Request) {
       customFormat: format === "CUSTOM" ? customFormat : null,
       aspectRatio,
       imageStyle,
+      transition,
     },
   });
   return Response.json({ project }, { status: 201 });

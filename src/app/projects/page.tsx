@@ -66,6 +66,7 @@ export default function ProjectsPage() {
   const [customFormat, setCustomFormat] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [imageStyle, setImageStyle] = useState(DEFAULT_IMAGE_STYLE);
+  const [transition, setTransition] = useState("fade");
   // Character source: pick an existing one or create a new one inline.
   const [charSource, setCharSource] = useState<"existing" | "new">("existing");
   const [newCharName, setNewCharName] = useState("");
@@ -209,7 +210,7 @@ export default function ProjectsPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, brief, characterId: useCharacterId, format, customFormat, aspectRatio, imageStyle }),
+        body: JSON.stringify({ title, brief, characterId: useCharacterId, format, customFormat, aspectRatio, imageStyle, transition }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -435,6 +436,37 @@ export default function ProjectsPage() {
             Character ka chehra reference photos se hi aayega — style sirf look
             badalti hai (real, anime, cartoon, Pixar, etc.).
           </p>
+
+          {/* Transition between images — only for Static Storytelling */}
+          {format === "STATIC_STORYTELLING" && (
+            <>
+              <label className="mt-4 block text-sm font-medium">
+                Transition (images ke beech)
+              </label>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {[
+                  { value: "fade", label: "Fade", desc: "Kaale me soft dip" },
+                  { value: "fadewhite", label: "Flash", desc: "Safed flash" },
+                  { value: "cut", label: "Cut", desc: "Sharp, no fade" },
+                ].map((t) => (
+                  <button
+                    type="button"
+                    key={t.value}
+                    onClick={() => setTransition(t.value)}
+                    className={
+                      "rounded-xl border px-3 py-2 text-left text-sm transition " +
+                      (transition === t.value
+                        ? "border-violet-400 bg-violet-500/10 text-white"
+                        : "border-white/15 bg-white/5 text-neutral-300 hover:border-white/30")
+                    }
+                  >
+                    <div className="font-medium">{t.label}</div>
+                    <p className="mt-0.5 text-[11px] text-neutral-400">{t.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* UGC-specific inputs: person + product photos + consent */}
           {format === "UGC_PRODUCT_AD" && (

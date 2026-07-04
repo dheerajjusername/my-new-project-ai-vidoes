@@ -3,7 +3,7 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
-import { generateVoiceover } from "@/lib/voiceover";
+import { generateVoiceoverWithTimestamps } from "@/lib/voiceover";
 import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
 import { parseFixes, applyPronunciationFixes, type PronunciationFix } from "@/lib/pronounce";
 
@@ -52,7 +52,13 @@ export async function POST(
   try {
     // Send the respelled text to the TTS, but keep the clean text on screen.
     const spoken = applyPronunciationFixes(text, fixes);
-    const voiceoverUrl = await generateVoiceover({ text: spoken, voice, languageCode });
+    // Ask for word timestamps so static images can be timed to their words.
+    const { url: voiceoverUrl, words } = await generateVoiceoverWithTimestamps({
+      text: spoken,
+      voice,
+      languageCode,
+      timestamps: true,
+    });
     // Keep the spoken text as the narration script — it drives how many
     // images a static story needs (words ÷ 6).
     const updated = await prisma.project.update({
@@ -60,6 +66,7 @@ export async function POST(
       data: {
         voiceoverUrl,
         narrationScript: text,
+        voiceoverWords: words.length > 0 ? JSON.stringify(words) : null,
         pronunciationFixes: fixes.length > 0 ? JSON.stringify(fixes) : null,
       },
     });

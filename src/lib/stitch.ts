@@ -163,40 +163,95 @@ const DIMS = {
   "9:16": { w: 720, h: 1280 },
 } as const;
 
+export type StaticImage = { url: string; narrationText?: string | null };
+export type WordTime = { text: string; start: number; end: number };
+
+const MIN_SEG = 1.0; // never flash an image faster than this
+
+// Decides how long each image stays on screen. When we have the voiceover's
+// word timestamps, each image is anchored to the exact words it illustrates
+// (real sync). Otherwise it falls back to splitting time by word count, and
+// finally to an equal split. The durations always sum to the audio length, so
+// the video is never longer or shorter than the narration.
+function computeDurations(
+  images: StaticImage[],
+  audioDur: number,
+  words: WordTime[] | null,
+): number[] {
+  const n = images.length;
+  const weights = images.map((im) => {
+    const c = (im.narrationText ?? "").trim().split(/\s+/).filter(Boolean).length;
+    return c > 0 ? c : 1;
+  });
+  const total = weights.reduce((a, b) => a + b, 0) || n;
+
+  // Real word-timestamp sync: place each image boundary at the start time of
+  // the word where its narration share begins.
+  if (words && words.length > 0) {
+    const W = words.length;
+    const starts: number[] = [0];
+    let cum = 0;
+    for (let i = 0; i < n - 1; i++) {
+      cum += weights[i];
+      const idx = Math.min(W - 1, Math.max(1, Math.round((cum / total) * W)));
+      // keep boundaries strictly increasing and at least MIN_SEG apart
+      starts.push(Math.max(starts[i] + MIN_SEG, words[idx].start));
+    }
+    starts.push(audioDur);
+    return starts.slice(1).map((end, i) => Math.max(MIN_SEG, end - starts[i]));
+  }
+
+  // No timestamps: split the audio in proportion to each image's word count.
+  return weights.map((wt) => Math.max(MIN_SEG, (audioDur * wt) / total));
+}
+
 /**
- * Static-storytelling stitch. Times a set of still images to exactly match the
- * narration voiceover's length (no mute tail, no cut-off audio), gives each
- * image a slow Ken Burns move, and crossfades between them. Output uses the
- * chosen aspect ratio and the voiceover as the soundtrack.
+ * Static-storytelling stitch. Times a set of still images to the narration
+ * voiceover — with word timestamps each image lands on the exact words it
+ * illustrates. Each image gets a slow Ken Burns move and the chosen transition
+ * (fade to black, fade to white, or a hard cut). Output uses the chosen aspect
+ * ratio and the voiceover as the soundtrack.
  */
 export async function stitchStaticVideo(input: {
-  imageUrls: string[];
+  images: StaticImage[];
   voiceoverUrl: string;
   aspectRatio?: string;
+  transition?: string;
+  voiceoverWords?: WordTime[] | null;
 }): Promise<string> {
-  const n = input.imageUrls.length;
+  const n = input.images.length;
   if (n === 0) throw new Error("no images to stitch");
 
   const { w, h } = DIMS[input.aspectRatio === "9:16" ? "9:16" : "16:9"];
+  const kind = input.transition === "cut"
+    ? "cut"
+    : input.transition === "fadewhite"
+      ? "fadewhite"
+      : "fade";
+  const fadeColor = kind === "fadewhite" ? "white" : "black";
   const dir = await mkdtemp(path.join(tmpdir(), "static-"));
   try {
     // 1. Voiceover + its duration → drives all timing.
     const vo = await download(input.voiceoverUrl, path.join(dir, "vo.mp3"));
     const audioDur = (await mediaDuration(vo)) || n * 3;
 
-    // 2. Each image shows for an equal slice of the audio, so the video is
-    //    exactly as long as the narration.
-    const seg = Math.max(1.2, audioDur / n);
-    const fade = Math.min(0.35, seg / 4); // gentle fade in/out per image
+    // 2. Per-image durations (word-synced when timestamps are available).
+    const durations = computeDurations(input.images, audioDur, input.voiceoverWords ?? null);
 
-    // 3. Build a Ken Burns segment per image, with a fade-in and fade-out
-    //    (a soft dip between images — works on old ffmpeg without xfade).
+    // 3. Build a Ken Burns segment per image, applying the chosen transition
+    //    (a soft fade dip between images — works on old ffmpeg without xfade).
     const segFiles: string[] = [];
-    for (const [i, url] of input.imageUrls.entries()) {
-      const img = await download(url, path.join(dir, `img-${i}`));
+    for (const [i, im] of input.images.entries()) {
+      const seg = durations[i];
+      const fade = kind === "cut" ? 0 : Math.min(0.35, seg / 4);
+      const img = await download(im.url, path.join(dir, `img-${i}`));
       const out = path.join(dir, `seg-${i}.mp4`);
-      const frames = Math.round(seg * FPS);
-      const outStart = (seg - fade).toFixed(3);
+      const frames = Math.max(1, Math.round(seg * FPS));
+      const fadeChain =
+        fade > 0
+          ? `fade=t=in:st=0:d=${fade}:color=${fadeColor},` +
+            `fade=t=out:st=${(seg - fade).toFixed(3)}:d=${fade}:color=${fadeColor},`
+          : "";
       await run(FFMPEG, [
         "-y", "-v", "error",
         "-loop", "1", "-i", img,
@@ -204,9 +259,9 @@ export async function stitchStaticVideo(input: {
         `[0:v]scale=${w * 2}:${h * 2}:force_original_aspect_ratio=increase,` +
           `crop=${w * 2}:${h * 2},` +
           `zoompan=z='min(zoom+0.0010,1.15)':d=${frames}:s=${w}x${h}:fps=${FPS},` +
-          `fade=t=in:st=0:d=${fade},fade=t=out:st=${outStart}:d=${fade},` +
+          fadeChain +
           `setsar=1,format=yuv420p[v]`,
-        "-map", "[v]", "-t", String(seg.toFixed(3)),
+        "-map", "[v]", "-t", seg.toFixed(3),
         "-c:v", "libx264", "-preset", "fast", "-crf", "20",
         out,
       ]);

@@ -164,8 +164,13 @@ const IMAGE_PROMPTS_SCHEMA = {
             description:
               "Full visual prompt for one cinematic still: scene, lighting, composition, and the character's appearance/action. Include the character's identity so it stays consistent.",
           },
+          narrationText: {
+            type: "string" as const,
+            description:
+              "The exact consecutive words of the narration that THIS image illustrates. Every image's narrationText, joined in order, must reproduce the full narration exactly once — no gaps, no overlaps, no reordering. Keep each span roughly 6-10 words so no image is on screen more than ~5 seconds.",
+          },
         },
-        required: ["cameraAngle", "promptText"],
+        required: ["cameraAngle", "promptText", "narrationText"],
         additionalProperties: false,
       },
     },
@@ -184,7 +189,7 @@ export async function generateStaticImagePrompts(input: {
   characterName: string;
   characterDescription: string;
   count: number;
-}): Promise<{ cameraAngle: string; prompt: string }[]> {
+}): Promise<{ cameraAngle: string; prompt: string; narrationText: string }[]> {
   const response = await anthropic.messages.create({
     model: "claude-opus-4-8",
     max_tokens: 4096,
@@ -193,6 +198,7 @@ export async function generateStaticImagePrompts(input: {
       `Produce EXACTLY ${input.count} images that tell the story of the narration in sequence — one visual beat per image.`,
       "Every image features the same character; repeat the character's identity description in each promptText so the face never drifts (the image model also gets reference photos).",
       "Vary the camera angle and composition across images. Strong cinematic lighting.",
+      "For each image, set narrationText to the exact consecutive words of the narration it illustrates. Split the narration across the images in order with NO gaps or overlaps — joining every narrationText back must reproduce the narration exactly. Aim for ~6-10 words per image.",
     ].join("\n"),
     messages: [
       {
@@ -210,9 +216,13 @@ export async function generateStaticImagePrompts(input: {
   const block = response.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") throw new Error("no image plan returned");
   const parsed = JSON.parse(block.text) as {
-    images: { cameraAngle: string; promptText: string }[];
+    images: { cameraAngle: string; promptText: string; narrationText?: string }[];
   };
-  return parsed.images.map((i) => ({ cameraAngle: i.cameraAngle, prompt: i.promptText }));
+  return parsed.images.map((i) => ({
+    cameraAngle: i.cameraAngle,
+    prompt: i.promptText,
+    narrationText: i.narrationText ?? "",
+  }));
 }
 
 export type PlannedShot = {

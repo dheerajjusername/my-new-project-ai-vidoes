@@ -60,6 +60,7 @@ export async function POST(
           type: "IMAGE",
           cameraAngle: img.cameraAngle,
           prompt: img.prompt,
+          narrationText: img.narrationText || null,
           durationSec: 3,
         },
       });
