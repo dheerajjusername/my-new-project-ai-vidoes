@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07070a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +12,28 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  /* Deep near-black with a soft violet glow at the top — cinematic backdrop. */
+  background:
+    radial-gradient(1000px 600px at 50% -10%, rgba(124, 58, 237, 0.18), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, rgba(37, 99, 235, 0.12), transparent 55%),
+    var(--background);
+  background-attachment: fixed;
+}
+
+/* Subtle grain-free glass card helper */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+::selection {
+  background: rgba(124, 58, 237, 0.4);
 }

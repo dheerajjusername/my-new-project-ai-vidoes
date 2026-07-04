@@ -1,7 +1,8 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
-import { AuthNav, redirectIfLoggedOut } from "@/components/auth-nav";
+import { redirectIfLoggedOut } from "@/components/auth-nav";
+import { SiteHeader } from "@/components/site-header";
 
 type Shot = {
   id: string;
@@ -124,7 +125,7 @@ export default function ProjectDetailPage({
 
   if (!project) {
     return (
-      <div className="flex-1 bg-white p-12 text-neutral-500">Loading…</div>
+      <div className="flex-1 p-12 text-neutral-500">Loading…</div>
     );
   }
 
@@ -133,35 +134,20 @@ export default function ProjectDetailPage({
     project.shots.every((s) => s.status === "COMPLETED");
 
   return (
-    <div className="flex-1 bg-white text-neutral-900">
-      <header className="border-b border-neutral-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <a href="/" className="text-lg font-semibold tracking-tight">
-            Ad Champ
-          </a>
-          <nav className="flex gap-6 text-sm text-neutral-600">
-            <a href="/characters" className="hover:text-neutral-900">
-              Characters
-            </a>
-            <a href="/projects" className="hover:text-neutral-900">
-              Projects
-            </a>
-            <AuthNav />
-          </nav>
-        </div>
-      </header>
+    <div className="flex-1 text-neutral-100">
+      <SiteHeader active="projects" />
 
       <main className="mx-auto max-w-6xl px-6 py-12">
-        <a href="/projects" className="text-sm text-neutral-500 hover:text-neutral-900">
+        <a href="/projects" className="text-sm text-neutral-400 hover:text-white">
           ← All projects
         </a>
         <div className="mt-3 flex items-center justify-between">
           <h1 className="text-3xl font-semibold tracking-tight">{project.title}</h1>
-          <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-neutral-300">
             {project.status.replaceAll("_", " ")}
           </span>
         </div>
-        <p className="mt-2 max-w-2xl text-neutral-600">{project.brief}</p>
+        <p className="mt-2 max-w-2xl text-neutral-400">{project.brief}</p>
         <p className="mt-1 text-sm text-neutral-500">
           Character: {project.character.name} · Format:{" "}
           {project.format.replaceAll("_", " ").toLowerCase()}
@@ -169,16 +155,16 @@ export default function ProjectDetailPage({
         </p>
 
         {error && (
-          <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {error}
           </p>
         )}
 
         {/* Final video */}
-        <div className="mt-8 rounded-xl border-2 border-neutral-900 p-5">
+        <div className="mt-8 glass rounded-2xl border border-violet-400/30 p-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Final video</h2>
+              <h2 className="text-lg font-semibold text-white">Final video</h2>
               <p className="mt-1 text-xs text-neutral-500">
                 Joins every shot (plus the voiceover, if you made one) into one
                 video. This step is free.
@@ -187,7 +173,7 @@ export default function ProjectDetailPage({
             <button
               onClick={createFinalVideo}
               disabled={stitching || !allShotsDone}
-              className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
             >
               {stitching
                 ? "Stitching…"
@@ -197,7 +183,7 @@ export default function ProjectDetailPage({
             </button>
           </div>
           {!allShotsDone && (
-            <p className="mt-2 text-xs text-amber-600">
+            <p className="mt-2 text-xs text-amber-400">
               Generate all shots first — the button unlocks when every shot is
               completed.
             </p>
@@ -206,18 +192,18 @@ export default function ProjectDetailPage({
             <video
               src={project.finalVideoUrl}
               controls
-              className="mt-4 w-full max-w-2xl rounded-lg border border-neutral-200"
+              className="mt-4 w-full max-w-2xl rounded-lg border border-white/10"
             />
           )}
         </div>
 
         <div className="mt-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Shots</h2>
+            <h2 className="text-xl font-semibold text-white">Shots</h2>
             <button
               onClick={generateShotList}
               disabled={planning || project.shots.some((s) => s.status !== "PENDING")}
-              className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
             >
               {planning
                 ? "Claude is planning the scenes…"
@@ -235,14 +221,14 @@ export default function ProjectDetailPage({
           )}
 
           {/* Voiceover */}
-          <div className="mt-8 rounded-xl border border-neutral-200 p-5">
-            <h3 className="font-medium">Voiceover (ElevenLabs)</h3>
+          <div className="mt-8 glass rounded-2xl p-5">
+            <h3 className="font-medium text-white">Voiceover (ElevenLabs)</h3>
             <p className="mt-1 text-xs text-neutral-500">
               Optional narration for the final video. Cost: roughly $0.10 per
               1000 characters — keep it short.
             </p>
             {project.shots.some((s) => s.dialogue) && (
-              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
                 ⚠️ Is project ke shots mein character khud bolta hai, isliye
                 narration final video mein mix <b>nahi</b> hogi (do awaazein
                 takrati hain). Narration sirf bina-dialogue formats ke liye hai
@@ -261,7 +247,7 @@ export default function ProjectDetailPage({
               <select
                 value={voLanguage}
                 onChange={(e) => setVoLanguage(e.target.value)}
-                className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-neutral-900"
+                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-violet-400"
               >
                 <option value="hi">Hindi</option>
                 <option value="en">English</option>
@@ -270,7 +256,7 @@ export default function ProjectDetailPage({
               <button
                 onClick={generateVoiceover}
                 disabled={voGenerating || voScript.trim().length === 0}
-                className="rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-50"
+                className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-medium text-neutral-200 hover:bg-white/10 disabled:opacity-50"
               >
                 {voGenerating
                   ? "Generating voice…"
@@ -295,16 +281,16 @@ export default function ProjectDetailPage({
             {project.shots.map((shot) => (
               <div
                 key={shot.id}
-                className="rounded-xl border border-neutral-200 p-5"
+                className="glass rounded-2xl p-5"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <span className="text-xs font-medium text-neutral-400">
+                    <span className="text-xs font-medium text-neutral-500">
                       SHOT {shot.orderIndex + 1} · {shot.durationSec ?? 8}s
                     </span>
-                    <p className="mt-1 text-sm text-neutral-700">{shot.prompt}</p>
+                    <p className="mt-1 text-sm text-neutral-300">{shot.prompt}</p>
                     {shot.dialogue && (
-                      <p className="mt-2 text-sm text-neutral-900">
+                      <p className="mt-2 text-sm text-neutral-100">
                         🗣️ <span className="italic">&ldquo;{shot.dialogue}&rdquo;</span>
                       </p>
                     )}
@@ -317,12 +303,12 @@ export default function ProjectDetailPage({
                       className={
                         "rounded-full px-3 py-1 text-xs font-medium " +
                         (shot.status === "COMPLETED"
-                          ? "bg-green-100 text-green-800"
+                          ? "bg-emerald-500/15 text-emerald-300"
                           : shot.status === "FAILED"
-                            ? "bg-red-100 text-red-800"
+                            ? "bg-red-500/15 text-red-300"
                             : shot.status === "GENERATING"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-neutral-100 text-neutral-700")
+                              ? "bg-amber-500/15 text-amber-300"
+                              : "bg-white/10 text-neutral-300")
                       }
                     >
                       {shot.status}
@@ -331,7 +317,7 @@ export default function ProjectDetailPage({
                       <button
                         onClick={() => generateShot(shot.id)}
                         disabled={generatingShotId !== null}
-                        className="rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-50"
+                        className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-medium text-neutral-200 hover:bg-white/10 disabled:opacity-50"
                       >
                         {generatingShotId === shot.id
                           ? "Generating (~1-2 min)…"
@@ -346,7 +332,7 @@ export default function ProjectDetailPage({
                   <video
                     src={shot.videoUrl}
                     controls
-                    className="mt-4 w-full max-w-xl rounded-lg border border-neutral-200"
+                    className="mt-4 w-full max-w-xl rounded-lg border border-white/10"
                   />
                 )}
               </div>

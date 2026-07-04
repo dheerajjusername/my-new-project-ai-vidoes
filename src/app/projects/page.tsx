@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AuthNav, redirectIfLoggedOut } from "@/components/auth-nav";
+import { redirectIfLoggedOut } from "@/components/auth-nav";
+import { SiteHeader } from "@/components/site-header";
 
 type Character = { id: string; name: string; status: string };
 type Project = {
@@ -81,34 +82,21 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="flex-1 bg-white text-neutral-900">
-      <header className="border-b border-neutral-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <a href="/" className="text-lg font-semibold tracking-tight">
-            Ad Champ
-          </a>
-          <nav className="flex gap-6 text-sm text-neutral-600">
-            <a href="/characters" className="hover:text-neutral-900">
-              Characters
-            </a>
-            <span className="font-medium text-neutral-900">Projects</span>
-            <AuthNav />
-          </nav>
-        </div>
-      </header>
+    <div className="flex-1 text-neutral-100">
+      <SiteHeader active="projects" />
 
       <main className="mx-auto max-w-6xl px-6 py-12">
         <h1 className="text-3xl font-semibold tracking-tight">Your projects</h1>
-        <p className="mt-2 text-neutral-600">
+        <p className="mt-2 text-neutral-400">
           A project turns your brief into a scene-by-scene video ad starring one
           of your characters.
         </p>
 
         <form
           onSubmit={handleCreate}
-          className="mt-8 max-w-xl rounded-xl border border-neutral-200 p-6"
+          className="mt-8 max-w-xl glass rounded-2xl p-6"
         >
-          <h2 className="font-medium">Create a new project</h2>
+          <h2 className="font-medium text-white">Create a new project</h2>
 
           <label className="mt-4 block text-sm font-medium" htmlFor="title">
             Title
@@ -119,7 +107,7 @@ export default function ProjectsPage() {
             onChange={(e) => setTitle(e.target.value)}
             required
             placeholder="e.g. Chai Masala launch ad"
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
 
           <label className="mt-4 block text-sm font-medium" htmlFor="character">
@@ -130,7 +118,7 @@ export default function ProjectsPage() {
             value={characterId}
             onChange={(e) => setCharacterId(e.target.value)}
             required
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           >
             <option value="">Select a character…</option>
             {characters.map((c) => (
@@ -156,7 +144,7 @@ export default function ProjectsPage() {
             id="format"
             value={format}
             onChange={(e) => setFormat(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           >
             {FORMAT_OPTIONS.map((f) => (
               <option key={f.value} value={f.value}>
@@ -176,7 +164,7 @@ export default function ProjectsPage() {
                 onChange={(e) => setCustomFormat(e.target.value)}
                 required
                 placeholder="e.g. 3 quick cuts with a cliffhanger ending"
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
               />
             </>
           )}
@@ -191,17 +179,17 @@ export default function ProjectsPage() {
             required
             rows={4}
             placeholder="e.g. A new masala chai brand called 'Garam Adrak' — homemade taste, ready in 2 minutes, for busy young professionals"
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
 
           <button
             type="submit"
             disabled={creating || characters.length === 0}
-            className="mt-5 rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+            className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
           >
             {creating ? "Creating…" : "Create project"}
           </button>
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </form>
 
         <div className="mt-12 space-y-4">
@@ -214,17 +202,17 @@ export default function ProjectsPage() {
             <a
               key={p.id}
               href={`/projects/${p.id}`}
-              className="block rounded-xl border border-neutral-200 p-5 hover:border-neutral-400"
+              className="block glass rounded-2xl p-5 hover:border-neutral-400"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium">{p.title}</h3>
-                  <p className="mt-1 text-sm text-neutral-600">
+                  <h3 className="font-medium text-white">{p.title}</h3>
+                  <p className="mt-1 text-sm text-neutral-400">
                     {p.character.name} · {p.format.replaceAll("_", " ").toLowerCase()} ·{" "}
                     {p.shots.length} shot{p.shots.length === 1 ? "" : "s"}
                   </p>
                 </div>
-                <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-neutral-300">
                   {p.status.replaceAll("_", " ")}
                 </span>
               </div>

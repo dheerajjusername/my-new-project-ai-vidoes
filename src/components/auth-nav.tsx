@@ -22,7 +22,7 @@ export function AuthNav() {
     return (
       <a
         href="/login"
-        className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+        className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
       >
         Log in
       </a>
@@ -30,10 +30,10 @@ export function AuthNav() {
   }
   return (
     <div className="flex items-center gap-3 text-sm">
-      <span className="hidden text-neutral-500 sm:inline">{email}</span>
+      <span className="hidden text-neutral-400 sm:inline">{email}</span>
       <button
         onClick={logout}
-        className="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
+        className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-white/10"
       >
         Log out
       </button>

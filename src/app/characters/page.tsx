@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AuthNav, redirectIfLoggedOut } from "@/components/auth-nav";
+import { redirectIfLoggedOut } from "@/components/auth-nav";
+import { SiteHeader } from "@/components/site-header";
 
 type Character = {
   id: string;
@@ -61,23 +62,12 @@ export default function CharactersPage() {
   }
 
   return (
-    <div className="flex-1 bg-white text-neutral-900">
-      <header className="border-b border-neutral-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <a href="/" className="text-lg font-semibold tracking-tight">
-            Ad Champ
-          </a>
-          <nav className="flex items-center gap-6 text-sm text-neutral-600">
-            <span className="font-medium text-neutral-900">Characters</span>
-            <a href="/projects" className="hover:text-neutral-900">Projects</a>
-            <AuthNav />
-          </nav>
-        </div>
-      </header>
+    <div className="flex-1 text-neutral-100">
+      <SiteHeader active="characters" />
 
       <main className="mx-auto max-w-6xl px-6 py-12">
         <h1 className="text-3xl font-semibold tracking-tight">Your characters</h1>
-        <p className="mt-2 text-neutral-600">
+        <p className="mt-2 text-neutral-400">
           Describe a character once — we generate 5 reference images from
           different angles so the face stays consistent in every video.
         </p>
@@ -85,7 +75,7 @@ export default function CharactersPage() {
         {/* Create form */}
         <form
           onSubmit={handleCreate}
-          className="mt-8 max-w-xl rounded-xl border border-neutral-200 p-6"
+          className="mt-8 max-w-xl glass rounded-2xl p-6"
         >
           <h2 className="font-medium">Create a new character</h2>
           <label className="mt-4 block text-sm font-medium" htmlFor="name">
@@ -97,7 +87,7 @@ export default function CharactersPage() {
             onChange={(e) => setName(e.target.value)}
             required
             placeholder="e.g. Priya"
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
           <label className="mt-4 block text-sm font-medium" htmlFor="description">
             Description
@@ -109,12 +99,12 @@ export default function CharactersPage() {
             required
             rows={4}
             placeholder="e.g. Indian woman in her late 20s, shoulder-length black hair, warm smile, wearing a mustard yellow kurta"
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
           <button
             type="submit"
             disabled={creating}
-            className="mt-5 rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+            className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
           >
             {creating ? "Generating 5 reference images…" : "Create character"}
           </button>
@@ -124,7 +114,7 @@ export default function CharactersPage() {
               more angles from it.
             </p>
           )}
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </form>
 
         {/* Character list */}
@@ -135,11 +125,11 @@ export default function CharactersPage() {
             </p>
           )}
           {characters.map((c) => (
-            <div key={c.id} className="rounded-xl border border-neutral-200 p-6">
+            <div key={c.id} className="glass rounded-2xl p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium">{c.name}</h3>
-                  <p className="mt-1 max-w-2xl text-sm text-neutral-600">
+                  <h3 className="font-medium text-white">{c.name}</h3>
+                  <p className="mt-1 max-w-2xl text-sm text-neutral-400">
                     {c.description}
                   </p>
                 </div>
@@ -147,10 +137,10 @@ export default function CharactersPage() {
                   className={
                     "rounded-full px-3 py-1 text-xs font-medium " +
                     (c.status === "READY"
-                      ? "bg-green-100 text-green-800"
+                      ? "bg-emerald-500/15 text-emerald-300"
                       : c.status === "FAILED"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800")
+                        ? "bg-red-500/15 text-red-300"
+                        : "bg-amber-500/15 text-amber-300")
                   }
                 >
                   {c.status}
@@ -164,7 +154,7 @@ export default function CharactersPage() {
                       key={url}
                       src={url}
                       alt={`${c.name} reference ${i + 1}`}
-                      className="aspect-[3/4] w-full rounded-lg border border-neutral-200 object-cover"
+                      className="aspect-[3/4] w-full rounded-lg border border-white/10 object-cover"
                     />
                   ))}
                 </div>
