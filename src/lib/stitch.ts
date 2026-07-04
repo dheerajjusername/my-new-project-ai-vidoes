@@ -113,11 +113,14 @@ export async function stitchProjectVideo(input: {
     if (input.voiceoverUrl) {
       const vo = await download(input.voiceoverUrl, path.join(dir, "voiceover.mp3"));
       const mixed = path.join(dir, "final.mp4");
+      // amix averages inputs (halves each), so pre-amplify to keep the
+      // narration at full and the clip audio at about half. `normalize=0`
+      // isn't supported on older ffmpeg builds, so we don't use it.
       await run(FFMPEG, [
         "-y", "-v", "error",
         "-i", combined, "-i", vo,
         "-filter_complex",
-        "[0:a]volume=0.5[bg];[1:a]volume=1.3[vo];[bg][vo]amix=inputs=2:duration=first:normalize=0[a]",
+        "[0:a]volume=1.0[bg];[1:a]volume=2.0[vo];[bg][vo]amix=inputs=2:duration=first[a]",
         "-map", "0:v", "-map", "[a]",
         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
         mixed,
