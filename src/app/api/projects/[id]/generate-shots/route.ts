@@ -45,6 +45,8 @@ export async function POST(
           projectId: project.id,
           orderIndex: i,
           prompt: shot.prompt,
+          dialogue: shot.dialogue,
+          dialogueLanguage: shot.dialogueLanguage,
           durationSec: shot.durationSec,
         },
       });

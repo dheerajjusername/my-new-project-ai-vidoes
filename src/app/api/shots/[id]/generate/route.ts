@@ -30,13 +30,16 @@ export async function POST(
   });
 
   try {
-    const videoUrl = await generateShotVideo({
+    const { videoUrl, audioUrl } = await generateShotVideo({
       prompt: shot.prompt,
+      dialogue: shot.dialogue,
+      dialogueLanguage: shot.dialogueLanguage,
+      voice: shot.project.character.voice,
       referenceImages: shot.project.character.referenceImages,
     });
     const updated = await prisma.shot.update({
       where: { id: shot.id },
-      data: { status: "COMPLETED", videoUrl },
+      data: { status: "COMPLETED", videoUrl, audioUrl },
     });
     return Response.json({ shot: updated });
   } catch (error) {

@@ -6,6 +6,7 @@ type Shot = {
   id: string;
   orderIndex: number;
   prompt: string;
+  dialogue: string | null;
   status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
   videoUrl: string | null;
   durationSec: number | null;
@@ -34,6 +35,7 @@ export default function ProjectDetailPage({
   const [planning, setPlanning] = useState(false);
   const [generatingShotId, setGeneratingShotId] = useState<string | null>(null);
   const [voScript, setVoScript] = useState("");
+  const [voLanguage, setVoLanguage] = useState("hi");
   const [voGenerating, setVoGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +91,7 @@ export default function ProjectDetailPage({
       const res = await fetch(`/api/projects/${id}/voiceover`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: voScript }),
+        body: JSON.stringify({ text: voScript, languageCode: voLanguage || null }),
       });
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Something went wrong");
@@ -187,6 +189,15 @@ export default function ProjectDetailPage({
               className="mt-3 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
             />
             <div className="mt-3 flex items-center gap-4">
+              <select
+                value={voLanguage}
+                onChange={(e) => setVoLanguage(e.target.value)}
+                className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-neutral-900"
+              >
+                <option value="hi">Hindi</option>
+                <option value="en">English</option>
+                <option value="">Auto</option>
+              </select>
               <button
                 onClick={generateVoiceover}
                 disabled={voGenerating || voScript.trim().length === 0}
@@ -223,6 +234,11 @@ export default function ProjectDetailPage({
                       SHOT {shot.orderIndex + 1} · {shot.durationSec ?? 8}s
                     </span>
                     <p className="mt-1 text-sm text-neutral-700">{shot.prompt}</p>
+                    {shot.dialogue && (
+                      <p className="mt-2 text-sm text-neutral-900">
+                        🗣️ <span className="italic">&ldquo;{shot.dialogue}&rdquo;</span>
+                      </p>
+                    )}
                     {shot.lastError && (
                       <p className="mt-2 text-xs text-red-600">{shot.lastError}</p>
                     )}
