@@ -63,6 +63,13 @@ export default function ProjectsPage() {
   const [characterId, setCharacterId] = useState("");
   const [format, setFormat] = useState("TALKING");
   const [customFormat, setCustomFormat] = useState("");
+  // Character source: pick an existing one or create a new one inline.
+  const [charSource, setCharSource] = useState<"existing" | "new">("existing");
+  const [newCharName, setNewCharName] = useState("");
+  const [newCharMode, setNewCharMode] = useState<"describe" | "photo">("describe");
+  const [newCharDesc, setNewCharDesc] = useState("");
+  const [newCharPhoto, setNewCharPhoto] = useState<File | null>(null);
+  const [newCharVoice, setNewCharVoice] = useState<string>(DEFAULT_VOICE);
   // UGC-specific inputs
   const [personFile, setPersonFile] = useState<File | null>(null);
   const [productFile, setProductFile] = useState<File | null>(null);
@@ -159,10 +166,47 @@ export default function ProjectsPage() {
         return;
       }
 
+      // Resolve the character: either an existing one, or create a new one
+      // inline (upload photo if needed, then generate its 5 reference images).
+      let useCharacterId = characterId;
+      if (charSource === "new") {
+        if (!newCharName.trim() || (newCharMode === "describe" && !newCharDesc.trim())) {
+          setError("Enter a character name and description.");
+          setCreating(false);
+          return;
+        }
+        let photoUrl: string | null = null;
+        if (newCharMode === "photo") {
+          if (!newCharPhoto) {
+            setError("Please choose a character photo.");
+            setCreating(false);
+            return;
+          }
+          photoUrl = await uploadImage(newCharPhoto);
+        }
+        const charRes = await fetch("/api/characters", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: newCharName,
+            description: newCharDesc,
+            photoUrl,
+            voice: newCharVoice,
+          }),
+        });
+        const charData = await charRes.json();
+        if (!charRes.ok) {
+          setError(charData.error ?? "Character creation failed");
+          setCreating(false);
+          return;
+        }
+        useCharacterId = charData.character.id;
+      }
+
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, brief, characterId, format, customFormat }),
+        body: JSON.stringify({ title, brief, characterId: useCharacterId, format, customFormat }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -208,31 +252,103 @@ export default function ProjectsPage() {
 
           {format !== "UGC_PRODUCT_AD" && (
             <>
-              <label className="mt-4 block text-sm font-medium" htmlFor="character">
-                Character
-              </label>
-              <select
-                id="character"
-                value={characterId}
-                onChange={(e) => setCharacterId(e.target.value)}
-                required
-                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
-              >
-                <option value="">Select a character…</option>
-                {characters.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {characters.length === 0 && (
-                <p className="mt-1 text-xs text-neutral-500">
-                  No ready characters yet —{" "}
-                  <a href="/characters" className="underline">
-                    create one first
-                  </a>
-                  .
-                </p>
+              <label className="mt-4 block text-sm font-medium">Character</label>
+              <div className="mt-1 flex rounded-lg bg-white/5 p-1 text-sm font-medium">
+                <button
+                  type="button"
+                  onClick={() => setCharSource("existing")}
+                  className={`flex-1 rounded-md py-1.5 ${charSource === "existing" ? "bg-white text-black" : "text-neutral-400"}`}
+                >
+                  Use existing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCharSource("new")}
+                  className={`flex-1 rounded-md py-1.5 ${charSource === "new" ? "bg-white text-black" : "text-neutral-400"}`}
+                >
+                  ＋ Create new
+                </button>
+              </div>
+
+              {charSource === "existing" ? (
+                <>
+                  <select
+                    value={characterId}
+                    onChange={(e) => setCharacterId(e.target.value)}
+                    required
+                    className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+                  >
+                    <option value="">Select a character…</option>
+                    {characters.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {characters.length === 0 && (
+                    <p className="mt-1 text-xs text-neutral-500">
+                      No ready characters yet — switch to “Create new”.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="mt-2 rounded-xl border border-violet-400/30 bg-violet-500/5 p-4">
+                  <input
+                    value={newCharName}
+                    onChange={(e) => setNewCharName(e.target.value)}
+                    placeholder="Character name (e.g. Priya)"
+                    className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+                  />
+                  <div className="mt-2 flex rounded-lg bg-white/5 p-1 text-xs font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setNewCharMode("describe")}
+                      className={`flex-1 rounded-md py-1 ${newCharMode === "describe" ? "bg-white text-black" : "text-neutral-400"}`}
+                    >
+                      Describe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewCharMode("photo")}
+                      className={`flex-1 rounded-md py-1 ${newCharMode === "photo" ? "bg-white text-black" : "text-neutral-400"}`}
+                    >
+                      Upload photo
+                    </button>
+                  </div>
+                  {newCharMode === "photo" && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setNewCharPhoto(e.target.files?.[0] ?? null)}
+                      className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-neutral-300 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1 file:text-xs file:text-white"
+                    />
+                  )}
+                  <textarea
+                    value={newCharDesc}
+                    onChange={(e) => setNewCharDesc(e.target.value)}
+                    rows={2}
+                    placeholder={
+                      newCharMode === "photo"
+                        ? "Optional extra details (e.g. wearing a blazer)"
+                        : "e.g. Indian woman late 20s, black hair, warm smile, mustard kurta"
+                    }
+                    className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+                  />
+                  <select
+                    value={newCharVoice}
+                    onChange={(e) => setNewCharVoice(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+                  >
+                    {VOICES.map((v) => (
+                      <option key={v.id} value={v.id} className="bg-neutral-900">
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-[11px] text-neutral-500">
+                    Creating a character generates 5 reference images (25 credits, ~1 min).
+                  </p>
+                </div>
               )}
             </>
           )}
@@ -351,14 +467,18 @@ export default function ProjectsPage() {
             type="submit"
             disabled={
               creating ||
-              (format !== "UGC_PRODUCT_AD" && characters.length === 0)
+              (format !== "UGC_PRODUCT_AD" &&
+                charSource === "existing" &&
+                characters.length === 0)
             }
             className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
           >
             {creating
               ? format === "UGC_PRODUCT_AD"
                 ? "Building UGC ad…"
-                : "Creating…"
+                : charSource === "new"
+                  ? "Creating character & project…"
+                  : "Creating…"
               : "Create project"}
           </button>
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
