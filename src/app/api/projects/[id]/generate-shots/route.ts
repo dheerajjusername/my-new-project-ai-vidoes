@@ -4,6 +4,7 @@ export const maxDuration = 300;
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateShotList } from "@/lib/shot-list";
+import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
 
 // Generates the scene-by-scene shot list with Claude and stores it.
 // Replaces any previously planned shots that haven't been generated.
@@ -26,6 +27,10 @@ export async function POST(
       { error: "some shots are already generated; can't replace the shot list" },
       { status: 409 },
     );
+  }
+
+  if (!(await reserveCredits(user.id, "shotList"))) {
+    return insufficientCredits("shotList");
   }
 
   await prisma.project.update({
@@ -66,6 +71,7 @@ export async function POST(
     });
     return Response.json({ project: updated });
   } catch (error) {
+    await refundCredits(user.id, "shotList");
     await prisma.project.update({
       where: { id: project.id },
       data: { status: "DRAFT" },

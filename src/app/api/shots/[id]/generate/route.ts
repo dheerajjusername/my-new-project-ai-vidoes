@@ -4,6 +4,7 @@ export const maxDuration = 300;
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateShotVideo } from "@/lib/video";
+import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
 
 // Generates the video clip for a single shot (~$0.40 per 8s at 720p).
 export async function POST(
@@ -22,6 +23,10 @@ export async function POST(
   }
   if (shot.status === "GENERATING") {
     return Response.json({ error: "shot is already generating" }, { status: 409 });
+  }
+
+  if (!(await reserveCredits(user.id, "shotVideo"))) {
+    return insufficientCredits("shotVideo");
   }
 
   await prisma.shot.update({
@@ -47,6 +52,7 @@ export async function POST(
     });
     return Response.json({ shot: updated });
   } catch (error) {
+    await refundCredits(user.id, "shotVideo");
     const message = error instanceof Error ? error.message : "generation failed";
     await prisma.shot.update({
       where: { id: shot.id },

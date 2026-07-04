@@ -4,6 +4,7 @@ export const maxDuration = 300;
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateVoiceover } from "@/lib/voiceover";
+import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
 
 // Generates the project's voiceover from a user-provided script
 // (~$0.10 per 1000 characters via ElevenLabs).
@@ -39,6 +40,10 @@ export async function POST(
     return Response.json({ error: "project not found" }, { status: 404 });
   }
 
+  if (!(await reserveCredits(user.id, "voiceover"))) {
+    return insufficientCredits("voiceover");
+  }
+
   try {
     const voiceoverUrl = await generateVoiceover({ text, voice, languageCode });
     const updated = await prisma.project.update({
@@ -47,6 +52,7 @@ export async function POST(
     });
     return Response.json({ project: updated });
   } catch (error) {
+    await refundCredits(user.id, "voiceover");
     const message = error instanceof Error ? error.message : "tts failed";
     return Response.json(
       { error: `Voiceover generation failed: ${message}` },

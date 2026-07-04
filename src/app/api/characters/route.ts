@@ -4,6 +4,7 @@ export const maxDuration = 300;
 import { prisma } from "@/lib/prisma";
 import { generateCharacterReferenceImages } from "@/lib/character-images";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
+import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
 
   const user = await getCurrentUser();
   if (!user) return unauthorized();
+
+  if (!(await reserveCredits(user.id, "character"))) {
+    return insufficientCredits("character");
+  }
+
   const character = await prisma.character.create({
     data: { userId: user.id, name, description, status: "GENERATING" },
   });
@@ -42,6 +48,7 @@ export async function POST(request: Request) {
     });
     return Response.json({ character: ready }, { status: 201 });
   } catch (error) {
+    await refundCredits(user.id, "character");
     await prisma.character.update({
       where: { id: character.id },
       data: { status: "FAILED" },
