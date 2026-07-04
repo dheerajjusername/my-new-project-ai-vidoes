@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { redirectIfLoggedOut } from "@/components/auth-nav";
 import { SiteHeader } from "@/components/site-header";
+import { VOICES, DEFAULT_VOICE } from "@/lib/voices";
 
 type Character = { id: string; name: string; status: string };
 type Project = {
@@ -62,6 +63,11 @@ export default function ProjectsPage() {
   const [characterId, setCharacterId] = useState("");
   const [format, setFormat] = useState("TALKING");
   const [customFormat, setCustomFormat] = useState("");
+  // UGC-specific inputs
+  const [personFile, setPersonFile] = useState<File | null>(null);
+  const [productFile, setProductFile] = useState<File | null>(null);
+  const [ugcVoice, setUgcVoice] = useState<string>(DEFAULT_VOICE);
+  const [consent, setConsent] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -105,11 +111,54 @@ export default function ProjectsPage() {
     }
   }
 
+  async function uploadImage(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Upload failed");
+    return data.url as string;
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
     setError(null);
     try {
+      // UGC uses a special flow: upload person + product, composite an anchor.
+      if (format === "UGC_PRODUCT_AD") {
+        if (!personFile || !productFile) {
+          setError("Please upload both a person photo and a product photo.");
+          setCreating(false);
+          return;
+        }
+        if (!consent) {
+          setError("Please confirm you have the right to use the person's photo.");
+          setCreating(false);
+          return;
+        }
+        const [personPhotoUrl, productPhotoUrl] = await Promise.all([
+          uploadImage(personFile),
+          uploadImage(productFile),
+        ]);
+        const res = await fetch("/api/projects/ugc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            brief,
+            personPhotoUrl,
+            productPhotoUrl,
+            voice: ugcVoice,
+            consent,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) setError(data.error ?? "Something went wrong");
+        else window.location.href = `/projects/${data.project.id}`;
+        return;
+      }
+
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,8 +170,8 @@ export default function ProjectsPage() {
       } else {
         window.location.href = `/projects/${data.project.id}`;
       }
-    } catch {
-      setError("Could not reach the server.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reach the server.");
     } finally {
       setCreating(false);
     }
@@ -157,31 +206,35 @@ export default function ProjectsPage() {
             className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
 
-          <label className="mt-4 block text-sm font-medium" htmlFor="character">
-            Character
-          </label>
-          <select
-            id="character"
-            value={characterId}
-            onChange={(e) => setCharacterId(e.target.value)}
-            required
-            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
-          >
-            <option value="">Select a character…</option>
-            {characters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          {characters.length === 0 && (
-            <p className="mt-1 text-xs text-neutral-500">
-              No ready characters yet —{" "}
-              <a href="/characters" className="underline">
-                create one first
-              </a>
-              .
-            </p>
+          {format !== "UGC_PRODUCT_AD" && (
+            <>
+              <label className="mt-4 block text-sm font-medium" htmlFor="character">
+                Character
+              </label>
+              <select
+                id="character"
+                value={characterId}
+                onChange={(e) => setCharacterId(e.target.value)}
+                required
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+              >
+                <option value="">Select a character…</option>
+                {characters.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {characters.length === 0 && (
+                <p className="mt-1 text-xs text-neutral-500">
+                  No ready characters yet —{" "}
+                  <a href="/characters" className="underline">
+                    create one first
+                  </a>
+                  .
+                </p>
+              )}
+            </>
           )}
 
           <label className="mt-4 block text-sm font-medium">Format</label>
@@ -206,6 +259,64 @@ export default function ProjectsPage() {
               </button>
             ))}
           </div>
+
+          {/* UGC-specific inputs: person + product photos + consent */}
+          {format === "UGC_PRODUCT_AD" && (
+            <div className="mt-4 rounded-xl border border-violet-400/30 bg-violet-500/5 p-4">
+              <p className="text-xs text-neutral-300">
+                Upload a photo of the person and a photo of the product — we&apos;ll
+                combine them so the person is holding the product in the ad.
+              </p>
+
+              <label className="mt-3 block text-sm font-medium" htmlFor="person">
+                Person photo
+              </label>
+              <input
+                id="person"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPersonFile(e.target.files?.[0] ?? null)}
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-neutral-300 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1 file:text-xs file:text-white"
+              />
+
+              <label className="mt-3 block text-sm font-medium" htmlFor="product">
+                Product photo
+              </label>
+              <input
+                id="product"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setProductFile(e.target.files?.[0] ?? null)}
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-neutral-300 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1 file:text-xs file:text-white"
+              />
+
+              <label className="mt-3 block text-sm font-medium" htmlFor="ugcVoice">
+                Voice
+              </label>
+              <select
+                id="ugcVoice"
+                value={ugcVoice}
+                onChange={(e) => setUgcVoice(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+              >
+                {VOICES.map((v) => (
+                  <option key={v.id} value={v.id} className="bg-neutral-900">
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+
+              <label className="mt-3 flex items-start gap-2 text-xs text-neutral-300">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  className="mt-0.5"
+                />
+                I have the right to use this person&apos;s photo.
+              </label>
+            </div>
+          )}
 
           {format === "CUSTOM" && (
             <>
@@ -238,10 +349,17 @@ export default function ProjectsPage() {
 
           <button
             type="submit"
-            disabled={creating || characters.length === 0}
+            disabled={
+              creating ||
+              (format !== "UGC_PRODUCT_AD" && characters.length === 0)
+            }
             className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
           >
-            {creating ? "Creating…" : "Create project"}
+            {creating
+              ? format === "UGC_PRODUCT_AD"
+                ? "Building UGC ad…"
+                : "Creating…"
+              : "Create project"}
           </button>
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </form>
