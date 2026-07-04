@@ -33,12 +33,14 @@ async function generateFirstFrame(
 export async function generateShotImage(input: {
   prompt: string;
   referenceImages: string[];
+  aspectRatio?: string;
 }): Promise<string> {
+  const ar = input.aspectRatio === "9:16" ? "9:16" : "16:9";
   const result = await fal.subscribe("fal-ai/nano-banana-2/edit", {
     input: {
-      prompt: `Using the person from the reference images (same face, same look), create this cinematic scene: ${input.prompt}. Film still, 16:9, strong composition.`,
+      prompt: `Using the person from the reference images (same face, same look), create this cinematic scene: ${input.prompt}. Film still, ${ar}, strong composition.`,
       image_urls: input.referenceImages,
-      aspect_ratio: "16:9",
+      aspect_ratio: ar,
       num_images: 1,
     },
   });

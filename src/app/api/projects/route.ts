@@ -34,6 +34,7 @@ export async function POST(request: Request) {
   const format = FORMATS.includes(body?.format) ? (body.format as VideoFormat) : null;
   const customFormat =
     typeof body?.customFormat === "string" ? body.customFormat.trim() : null;
+  const aspectRatio = body?.aspectRatio === "9:16" ? "9:16" : "16:9";
 
   if (!title || !brief || !characterId || !format) {
     return Response.json(
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
       brief,
       format,
       customFormat: format === "CUSTOM" ? customFormat : null,
+      aspectRatio,
     },
   });
   return Response.json({ project }, { status: 201 });

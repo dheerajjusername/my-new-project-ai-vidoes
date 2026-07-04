@@ -63,6 +63,7 @@ export default function ProjectsPage() {
   const [characterId, setCharacterId] = useState("");
   const [format, setFormat] = useState("TALKING");
   const [customFormat, setCustomFormat] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("16:9");
   // Character source: pick an existing one or create a new one inline.
   const [charSource, setCharSource] = useState<"existing" | "new">("existing");
   const [newCharName, setNewCharName] = useState("");
@@ -206,7 +207,7 @@ export default function ProjectsPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, brief, characterId: useCharacterId, format, customFormat }),
+        body: JSON.stringify({ title, brief, characterId: useCharacterId, format, customFormat, aspectRatio }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -372,6 +373,38 @@ export default function ProjectsPage() {
                   <span className="text-[10px] text-neutral-400">{f.cost}</span>
                 </div>
                 <p className="mt-1 text-xs text-neutral-400">{f.desc}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Aspect ratio — landscape for YouTube, portrait for Reels/Shorts */}
+          <label className="mt-4 block text-sm font-medium">Video shape</label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {[
+              { value: "16:9", label: "16:9 Landscape", desc: "YouTube, website, TV" },
+              { value: "9:16", label: "9:16 Portrait", desc: "Reels, Shorts, Stories" },
+            ].map((a) => (
+              <button
+                type="button"
+                key={a.value}
+                onClick={() => setAspectRatio(a.value)}
+                className={
+                  "rounded-xl border p-3 text-left transition " +
+                  (aspectRatio === a.value
+                    ? "border-violet-400 bg-violet-500/10"
+                    : "border-white/15 bg-white/5 hover:border-white/30")
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      "inline-block rounded-sm border border-white/40 " +
+                      (a.value === "16:9" ? "h-3 w-5" : "h-5 w-3")
+                    }
+                  />
+                  <span className="text-sm font-medium text-white">{a.label}</span>
+                </div>
+                <p className="mt-1 text-xs text-neutral-400">{a.desc}</p>
               </button>
             ))}
           </div>

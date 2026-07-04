@@ -62,6 +62,7 @@ export async function POST(
       const imageUrl = await generateShotImage({
         prompt: shot.prompt,
         referenceImages: shot.project.character.referenceImages,
+        aspectRatio: shot.project.aspectRatio,
       });
       const updated = await prisma.shot.update({
         where: { id: shot.id },

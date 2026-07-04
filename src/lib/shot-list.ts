@@ -122,6 +122,99 @@ const SHOT_LIST_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * Writes a spoken narration script for a static-storytelling ad from the
+ * brief. Plain text (Hindi in Devanagari if the brief is Hindi/Hinglish).
+ */
+export async function generateNarrationScript(input: {
+  brief: string;
+  characterName: string;
+}): Promise<string> {
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 1024,
+    system:
+      "You write short spoken voiceover scripts for narrated video ads. " +
+      "Return ONLY the narration text — no headings, no stage directions, no quotes. " +
+      "Keep it natural to speak, 40-90 words. If the brief is Hindi or Hinglish, " +
+      "write the narration in Hindi using Devanagari script.",
+    messages: [
+      {
+        role: "user",
+        content: `Write the voiceover narration for this ad. Main character: ${input.characterName}.\n\nBrief: ${input.brief}`,
+      },
+    ],
+  });
+  const block = response.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("no narration returned");
+  return block.text.trim();
+}
+
+const IMAGE_PROMPTS_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    images: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          cameraAngle: { type: "string" as const },
+          promptText: {
+            type: "string" as const,
+            description:
+              "Full visual prompt for one cinematic still: scene, lighting, composition, and the character's appearance/action. Include the character's identity so it stays consistent.",
+          },
+        },
+        required: ["cameraAngle", "promptText"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["images"],
+  additionalProperties: false,
+};
+
+/**
+ * Plans exactly `count` cinematic still images that visually tell the
+ * narration's story in order, all featuring the same character.
+ */
+export async function generateStaticImagePrompts(input: {
+  narration: string;
+  brief: string;
+  characterName: string;
+  characterDescription: string;
+  count: number;
+}): Promise<{ cameraAngle: string; prompt: string }[]> {
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 4096,
+    system: [
+      "You are a Creative Director planning still images for a narrated video ad.",
+      `Produce EXACTLY ${input.count} images that tell the story of the narration in sequence — one visual beat per image.`,
+      "Every image features the same character; repeat the character's identity description in each promptText so the face never drifts (the image model also gets reference photos).",
+      "Vary the camera angle and composition across images. Strong cinematic lighting.",
+    ].join("\n"),
+    messages: [
+      {
+        role: "user",
+        content: [
+          `Character: ${input.characterName} — ${input.characterDescription}`,
+          `Brief: ${input.brief}`,
+          `Narration being illustrated: ${input.narration}`,
+          `Plan exactly ${input.count} images.`,
+        ].join("\n\n"),
+      },
+    ],
+    output_config: { format: { type: "json_schema", schema: IMAGE_PROMPTS_SCHEMA } },
+  });
+  const block = response.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("no image plan returned");
+  const parsed = JSON.parse(block.text) as {
+    images: { cameraAngle: string; promptText: string }[];
+  };
+  return parsed.images.map((i) => ({ cameraAngle: i.cameraAngle, prompt: i.promptText }));
+}
+
 export type PlannedShot = {
   type: "VIDEO" | "IMAGE";
   cameraAngle: string;

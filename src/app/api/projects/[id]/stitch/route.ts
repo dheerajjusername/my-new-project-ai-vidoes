@@ -3,7 +3,7 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
-import { stitchProjectVideo } from "@/lib/stitch";
+import { stitchProjectVideo, stitchStaticVideo } from "@/lib/stitch";
 
 // Joins all completed shots (plus optional voiceover) into the final video.
 // FFmpeg runs locally, so this step itself costs nothing.
@@ -32,6 +32,17 @@ export async function POST(
     );
   }
 
+  // Static storytelling needs the narration to time the images.
+  const isStatic =
+    project.format === "STATIC_STORYTELLING" &&
+    project.shots.every((s) => s.type === "IMAGE");
+  if (isStatic && !project.voiceoverUrl) {
+    return Response.json(
+      { error: "Generate the voiceover first — it sets the video's length." },
+      { status: 400 },
+    );
+  }
+
   const previousStatus = project.status;
   await prisma.project.update({
     where: { id: project.id },
@@ -44,14 +55,20 @@ export async function POST(
   const voiceoverSkipped = Boolean(hasDialogue && project.voiceoverUrl);
 
   try {
-    const finalVideoUrl = await stitchProjectVideo({
-      shots: project.shots.map((s) => ({
-        url: s.videoUrl!,
-        type: s.type,
-        durationSec: s.durationSec ?? (s.type === "IMAGE" ? 6 : 8),
-      })),
-      voiceoverUrl: voiceoverSkipped ? null : project.voiceoverUrl,
-    });
+    const finalVideoUrl = isStatic
+      ? await stitchStaticVideo({
+          imageUrls: project.shots.map((s) => s.videoUrl!),
+          voiceoverUrl: project.voiceoverUrl!,
+          aspectRatio: project.aspectRatio,
+        })
+      : await stitchProjectVideo({
+          shots: project.shots.map((s) => ({
+            url: s.videoUrl!,
+            type: s.type,
+            durationSec: s.durationSec ?? (s.type === "IMAGE" ? 6 : 8),
+          })),
+          voiceoverUrl: voiceoverSkipped ? null : project.voiceoverUrl,
+        });
     const updated = await prisma.project.update({
       where: { id: project.id },
       data: { finalVideoUrl, status: "COMPLETED" },

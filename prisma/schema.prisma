@@ -62,6 +62,11 @@ model Project {
   format        VideoFormat
   // Free-text description of the format when format = CUSTOM.
   customFormat  String?
+  // "16:9" (landscape) or "9:16" (vertical/reels).
+  aspectRatio   String        @default("16:9")
+  // Narration script (used by static/motion formats to drive the voiceover
+  // and the number of images).
+  narrationScript String?
   status        ProjectStatus @default(DRAFT)
   // URL of the ElevenLabs voiceover audio, once generated.
   voiceoverUrl  String?

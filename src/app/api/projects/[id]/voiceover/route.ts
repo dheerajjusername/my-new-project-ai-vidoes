@@ -46,9 +46,11 @@ export async function POST(
 
   try {
     const voiceoverUrl = await generateVoiceover({ text, voice, languageCode });
+    // Keep the spoken text as the narration script — it drives how many
+    // images a static story needs (words ÷ 6).
     const updated = await prisma.project.update({
       where: { id: project.id },
-      data: { voiceoverUrl },
+      data: { voiceoverUrl, narrationScript: text },
     });
     return Response.json({ project: updated });
   } catch (error) {

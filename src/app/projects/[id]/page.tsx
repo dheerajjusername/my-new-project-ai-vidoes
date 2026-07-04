@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { redirectIfLoggedOut } from "@/components/auth-nav";
 import { SiteHeader } from "@/components/site-header";
 import { VIDEO_MODELS, DEFAULT_VIDEO_MODEL } from "@/lib/video-models";
+import { VOICES, DEFAULT_VOICE } from "@/lib/voices";
 
 type Shot = {
   id: string;
@@ -24,6 +25,8 @@ type Project = {
   brief: string;
   format: string;
   customFormat: string | null;
+  aspectRatio: string;
+  narrationScript: string | null;
   status: string;
   voiceoverUrl: string | null;
   finalVideoUrl: string | null;
@@ -48,12 +51,26 @@ export default function ProjectDetailPage({
   const [downloading, setDownloading] = useState(false);
   const [videoModel, setVideoModel] = useState<string>(DEFAULT_VIDEO_MODEL);
   const [error, setError] = useState<string | null>(null);
+  // Static Storytelling guided flow
+  const [narration, setNarration] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [staticVoice, setStaticVoice] = useState<string>(DEFAULT_VOICE);
+  const [planningStatic, setPlanningStatic] = useState(false);
+  const [deletingShotId, setDeletingShotId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${id}`);
       if (redirectIfLoggedOut(res)) return;
-      if (res.ok) setProject((await res.json()).project);
+      if (res.ok) {
+        const proj: Project = (await res.json()).project;
+        setProject(proj);
+        // Seed the narration textarea once from whatever is saved.
+        setNarration((prev) => {
+          if (prev) return prev;
+          return proj.narrationScript ?? "";
+        });
+      }
     } catch {
       // keep current state
     }
@@ -170,6 +187,80 @@ export default function ProjectDetailPage({
     }
   }
 
+  // --- Static Storytelling guided flow ---
+
+  // Ask Claude to draft a narration script from the brief.
+  async function suggestNarration() {
+    setSuggesting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/narration`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      else if (data.script) setNarration(data.script);
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  // Generate the voiceover from the narration textarea (also saves the script).
+  async function generateStaticVoiceover() {
+    setVoGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/voiceover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: narration,
+          voice: staticVoice,
+          languageCode: voLanguage || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setVoGenerating(false);
+    }
+  }
+
+  // Plan the images: count = words in the narration ÷ 6.
+  async function planStaticImages() {
+    setPlanningStatic(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/plan-static`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setPlanningStatic(false);
+    }
+  }
+
+  // Delete a single image so it can be re-planned or regenerated.
+  async function deleteShot(shotId: string) {
+    setDeletingShotId(shotId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/shots/${shotId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Delete failed");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setDeletingShotId(null);
+    }
+  }
+
   async function createFinalVideo() {
     setStitching(true);
     setError(null);
@@ -203,6 +294,11 @@ export default function ProjectDetailPage({
     .reduce((sum, s) => sum + (s.type === "IMAGE" ? 8 : modelCredits), 0);
   // Formats made only of image shots don't need a video model.
   const anyVideoShot = project.shots.some((s) => s.type === "VIDEO");
+  const isStatic = project.format === "STATIC_STORYTELLING";
+  // words ÷ 6 = number of images (matches the backend planner).
+  const narrationWords = narration.trim().split(/\s+/).filter(Boolean).length;
+  const plannedImageCount = Math.min(20, Math.max(2, Math.round(narrationWords / 6)));
+  const hasImages = project.shots.length > 0;
 
   return (
     <div className="flex-1 text-neutral-100">
@@ -229,6 +325,132 @@ export default function ProjectDetailPage({
           <p className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {error}
           </p>
+        )}
+
+        {/* Static Storytelling — guided flow */}
+        {isStatic && (
+          <div className="mt-8 glass rounded-2xl border border-violet-400/30 p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">
+                Static Storytelling
+              </h2>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-neutral-300">
+                {project.aspectRatio === "9:16" ? "9:16 Portrait" : "16:9 Landscape"}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-neutral-500">
+              Steps: (1) narration likho → (2) voice choose karke voiceover
+              banao → (3) images plan karo (har ~6 word = 1 image, 3 sec each) →
+              (4) images generate/regenerate/delete → (5) final video. Video ki
+              length voiceover ke barabar hi hogi.
+            </p>
+
+            {/* Step 1 — narration */}
+            <div className="mt-5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-white">
+                  Step 1 · Narration script
+                </label>
+                <button
+                  onClick={suggestNarration}
+                  disabled={suggesting}
+                  className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+                >
+                  {suggesting ? "Writing…" : "✨ Suggest with AI (3 credits)"}
+                </button>
+              </div>
+              <textarea
+                value={narration}
+                onChange={(e) => setNarration(e.target.value)}
+                rows={4}
+                maxLength={2500}
+                placeholder="Apni kahani yahan likho — ya 'Suggest with AI' dabao. Ise aap edit bhi kar sakte ho."
+                className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                {narrationWords} words → ~{plannedImageCount} images · {narration.length}/2500
+              </p>
+            </div>
+
+            {/* Step 2 — voice + voiceover */}
+            <div className="mt-5">
+              <label className="text-sm font-medium text-white">
+                Step 2 · Voice &amp; voiceover
+              </label>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <select
+                  value={staticVoice}
+                  onChange={(e) => setStaticVoice(e.target.value)}
+                  className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+                >
+                  {VOICES.map((v) => (
+                    <option key={v.id} value={v.id} className="bg-neutral-900">
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={voLanguage}
+                  onChange={(e) => setVoLanguage(e.target.value)}
+                  className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-xs text-white outline-none focus:border-violet-400"
+                >
+                  <option value="hi">Hindi</option>
+                  <option value="en">English</option>
+                  <option value="">Auto</option>
+                </select>
+                <button
+                  onClick={generateStaticVoiceover}
+                  disabled={voGenerating || narration.trim().length === 0}
+                  className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
+                >
+                  {voGenerating
+                    ? "Generating voice…"
+                    : project.voiceoverUrl
+                      ? "Regenerate voiceover (3 credits)"
+                      : "Generate voiceover (3 credits)"}
+                </button>
+              </div>
+              {project.voiceoverUrl && (
+                <audio
+                  src={project.voiceoverUrl}
+                  controls
+                  className="mt-3 w-full max-w-xl"
+                />
+              )}
+            </div>
+
+            {/* Step 3 — plan images */}
+            <div className="mt-5">
+              <label className="text-sm font-medium text-white">
+                Step 3 · Plan images
+              </label>
+              <p className="mt-1 text-xs text-neutral-500">
+                {project.narrationScript
+                  ? `Voiceover ke hisaab se ~${plannedImageCount} images banenge.`
+                  : "Pehle voiceover banao (Step 2), phir images plan honge."}
+              </p>
+              <button
+                onClick={planStaticImages}
+                disabled={
+                  planningStatic ||
+                  !project.voiceoverUrl ||
+                  project.shots.some((s) => s.status !== "PENDING")
+                }
+                className="mt-2 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {planningStatic
+                  ? "Planning images…"
+                  : hasImages
+                    ? "Re-plan images (3 credits)"
+                    : "Plan images with AI (3 credits)"}
+              </button>
+              {hasImages && project.shots.some((s) => s.status !== "PENDING") && (
+                <p className="mt-2 text-xs text-amber-400">
+                  Re-plan karne ke liye pehle generated images delete karo (neeche).
+                </p>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Final video */}
@@ -301,17 +523,19 @@ export default function ProjectDetailPage({
                     : `Generate all shots (${pendingCost} credits)`}
                 </button>
               )}
-              <button
-                onClick={generateShotList}
-                disabled={busy || project.shots.some((s) => s.status !== "PENDING")}
-                className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-neutral-200 hover:bg-white/10 disabled:opacity-50"
-              >
-                {planning
-                  ? "Planning scenes…"
-                  : project.shots.length > 0
-                    ? "Regenerate shot list"
-                    : "Generate shot list with AI"}
-              </button>
+              {!isStatic && (
+                <button
+                  onClick={generateShotList}
+                  disabled={busy || project.shots.some((s) => s.status !== "PENDING")}
+                  className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+                >
+                  {planning
+                    ? "Planning scenes…"
+                    : project.shots.length > 0
+                      ? "Regenerate shot list"
+                      : "Generate shot list with AI"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -352,12 +576,14 @@ export default function ProjectDetailPage({
 
           {project.shots.length === 0 && !planning && (
             <p className="mt-4 text-sm text-neutral-500">
-              No shots yet. Click the button above and AI will turn your
-              brief into a scene-by-scene plan.
+              {isStatic
+                ? "No images yet. Complete Steps 1–3 above (narration → voiceover → plan images)."
+                : "No shots yet. Click the button above and AI will turn your brief into a scene-by-scene plan."}
             </p>
           )}
 
-          {/* Voiceover */}
+          {/* Voiceover — generic formats only (Static uses its own Step 2) */}
+          {!isStatic && (
           <div className="mt-8 glass rounded-2xl p-5">
             <h3 className="font-medium text-white">Voiceover (ElevenLabs)</h3>
             <p className="mt-1 text-xs text-neutral-500">
@@ -412,6 +638,7 @@ export default function ProjectDetailPage({
               />
             )}
           </div>
+          )}
 
           <div className="mt-6 space-y-4">
             {project.shots.map((shot) => (
@@ -460,6 +687,15 @@ export default function ProjectDetailPage({
                         {generatingShotId === shot.id
                           ? "Generating…"
                           : `${shot.status === "COMPLETED" ? "Regenerate" : shot.type === "IMAGE" ? "Generate image" : "Generate video"} (${shot.type === "IMAGE" ? 8 : modelCredits} credits)`}
+                      </button>
+                    )}
+                    {isStatic && shot.status !== "GENERATING" && (
+                      <button
+                        onClick={() => deleteShot(shot.id)}
+                        disabled={busy || deletingShotId === shot.id}
+                        className="rounded-full border border-white/15 px-4 py-1.5 text-xs font-medium text-neutral-400 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                      >
+                        {deletingShotId === shot.id ? "Deleting…" : "Delete image"}
                       </button>
                     )}
                   </div>
