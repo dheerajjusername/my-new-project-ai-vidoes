@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getDemoUser } from "@/lib/demo-user";
+import { getCurrentUser, unauthorized } from "@/lib/auth";
 import type { VideoFormat } from "@/generated/prisma/enums";
 
 const FORMATS: VideoFormat[] = [
@@ -12,7 +12,8 @@ const FORMATS: VideoFormat[] = [
 ];
 
 export async function GET() {
-  const user = await getDemoUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
@@ -47,7 +48,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const user = await getDemoUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const character = await prisma.character.findFirst({
     where: { id: characterId, userId: user.id },
   });

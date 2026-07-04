@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AuthNav, redirectIfLoggedOut } from "@/components/auth-nav";
 
 type Character = {
   id: string;
@@ -21,6 +22,7 @@ export default function CharactersPage() {
   const loadCharacters = useCallback(async () => {
     try {
       const res = await fetch("/api/characters");
+      if (redirectIfLoggedOut(res)) return;
       if (!res.ok) return;
       const data = await res.json();
       setCharacters(data.characters ?? []);
@@ -65,8 +67,10 @@ export default function CharactersPage() {
           <a href="/" className="text-lg font-semibold tracking-tight">
             Ad Champ
           </a>
-          <nav className="text-sm text-neutral-600">
+          <nav className="flex items-center gap-6 text-sm text-neutral-600">
             <span className="font-medium text-neutral-900">Characters</span>
+            <a href="/projects" className="hover:text-neutral-900">Projects</a>
+            <AuthNav />
           </nav>
         </div>
       </header>

@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { AuthNav, redirectIfLoggedOut } from "@/components/auth-nav";
 
 type Shot = {
   id: string;
@@ -44,6 +45,7 @@ export default function ProjectDetailPage({
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${id}`);
+      if (redirectIfLoggedOut(res)) return;
       if (res.ok) setProject((await res.json()).project);
     } catch {
       // keep current state
@@ -144,6 +146,7 @@ export default function ProjectDetailPage({
             <a href="/projects" className="hover:text-neutral-900">
               Projects
             </a>
+            <AuthNav />
           </nav>
         </div>
       </header>

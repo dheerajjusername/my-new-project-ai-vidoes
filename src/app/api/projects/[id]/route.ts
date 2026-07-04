@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { getDemoUser } from "@/lib/demo-user";
+import { getCurrentUser, unauthorized } from "@/lib/auth";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const user = await getDemoUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const project = await prisma.project.findFirst({
     where: { id, userId: user.id },
     include: {

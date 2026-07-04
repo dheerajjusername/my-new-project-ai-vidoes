@@ -2,7 +2,7 @@
 export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
-import { getDemoUser } from "@/lib/demo-user";
+import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateShotVideo } from "@/lib/video";
 
 // Generates the video clip for a single shot (~$0.40 per 8s at 720p).
@@ -11,7 +11,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const user = await getDemoUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const shot = await prisma.shot.findFirst({
     where: { id, project: { userId: user.id } },
     include: { project: { include: { character: true } } },

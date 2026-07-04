@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AuthNav, redirectIfLoggedOut } from "@/components/auth-nav";
 
 type Character = { id: string; name: string; status: string };
 type Project = {
@@ -39,6 +40,7 @@ export default function ProjectsPage() {
         fetch("/api/projects"),
         fetch("/api/characters"),
       ]);
+      if (redirectIfLoggedOut(projRes)) return;
       if (projRes.ok) {
         setProjects((await projRes.json()).projects ?? []);
       }
@@ -90,6 +92,7 @@ export default function ProjectsPage() {
               Characters
             </a>
             <span className="font-medium text-neutral-900">Projects</span>
+            <AuthNav />
           </nav>
         </div>
       </header>

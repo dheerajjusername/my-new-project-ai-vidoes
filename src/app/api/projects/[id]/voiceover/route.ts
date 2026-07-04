@@ -2,7 +2,7 @@
 export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
-import { getDemoUser } from "@/lib/demo-user";
+import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateVoiceover } from "@/lib/voiceover";
 
 // Generates the project's voiceover from a user-provided script
@@ -30,7 +30,8 @@ export async function POST(
     );
   }
 
-  const user = await getDemoUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const project = await prisma.project.findFirst({
     where: { id, userId: user.id },
   });

@@ -3,10 +3,11 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { generateCharacterReferenceImages } from "@/lib/character-images";
-import { getDemoUser } from "@/lib/demo-user";
+import { getCurrentUser, unauthorized } from "@/lib/auth";
 
 export async function GET() {
-  const user = await getDemoUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const characters = await prisma.character.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
@@ -27,7 +28,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const user = await getDemoUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const character = await prisma.character.create({
     data: { userId: user.id, name, description, status: "GENERATING" },
   });
