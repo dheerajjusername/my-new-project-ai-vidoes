@@ -64,9 +64,15 @@ model Project {
   customFormat  String?
   // "16:9" (landscape) or "9:16" (vertical/reels).
   aspectRatio   String        @default("16:9")
+  // Art style for generated images: realistic, cinematic, anime, cartoon,
+  // pixar, watercolor, comic (see src/lib/image-styles.ts).
+  imageStyle    String        @default("realistic")
   // Narration script (used by static/motion formats to drive the voiceover
   // and the number of images).
   narrationScript String?
+  // Optional pronunciation fixes for the voiceover, stored as a JSON array of
+  // { from, to } — each `from` is respelled to `to` before TTS.
+  pronunciationFixes String?
   status        ProjectStatus @default(DRAFT)
   // URL of the ElevenLabs voiceover audio, once generated.
   voiceoverUrl  String?

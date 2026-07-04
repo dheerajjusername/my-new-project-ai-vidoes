@@ -5,6 +5,7 @@ import { redirectIfLoggedOut } from "@/components/auth-nav";
 import { SiteHeader } from "@/components/site-header";
 import { VIDEO_MODELS, DEFAULT_VIDEO_MODEL } from "@/lib/video-models";
 import { VOICES, DEFAULT_VOICE } from "@/lib/voices";
+import { IMAGE_STYLES } from "@/lib/image-styles";
 
 type Shot = {
   id: string;
@@ -26,7 +27,9 @@ type Project = {
   format: string;
   customFormat: string | null;
   aspectRatio: string;
+  imageStyle: string;
   narrationScript: string | null;
+  pronunciationFixes: string | null;
   status: string;
   voiceoverUrl: string | null;
   finalVideoUrl: string | null;
@@ -57,6 +60,9 @@ export default function ProjectDetailPage({
   const [staticVoice, setStaticVoice] = useState<string>(DEFAULT_VOICE);
   const [planningStatic, setPlanningStatic] = useState(false);
   const [deletingShotId, setDeletingShotId] = useState<string | null>(null);
+  // Pronunciation fixes: word the voice says wrong → how to spell it.
+  const [pronFixes, setPronFixes] = useState<{ from: string; to: string }[]>([]);
+  const [showPron, setShowPron] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -69,6 +75,16 @@ export default function ProjectDetailPage({
         setNarration((prev) => {
           if (prev) return prev;
           return proj.narrationScript ?? "";
+        });
+        // Seed saved pronunciation fixes once.
+        setPronFixes((prev) => {
+          if (prev.length > 0) return prev;
+          try {
+            const arr = JSON.parse(proj.pronunciationFixes ?? "[]");
+            return Array.isArray(arr) ? arr : [];
+          } catch {
+            return [];
+          }
         });
       }
     } catch {
@@ -217,6 +233,7 @@ export default function ProjectDetailPage({
           text: narration,
           voice: staticVoice,
           languageCode: voLanguage || null,
+          pronunciationFixes: pronFixes.filter((f) => f.from.trim() && f.to.trim()),
         }),
       });
       const data = await res.json();
@@ -295,6 +312,9 @@ export default function ProjectDetailPage({
   // Formats made only of image shots don't need a video model.
   const anyVideoShot = project.shots.some((s) => s.type === "VIDEO");
   const isStatic = project.format === "STATIC_STORYTELLING";
+  const styleLabel =
+    IMAGE_STYLES.find((s) => s.id === project.imageStyle)?.label ??
+    project.imageStyle;
   // words ÷ 6 = number of images (matches the backend planner).
   const narrationWords = narration.trim().split(/\s+/).filter(Boolean).length;
   const plannedImageCount = Math.min(20, Math.max(2, Math.round(narrationWords / 6)));
@@ -319,6 +339,8 @@ export default function ProjectDetailPage({
           Character: {project.character.name} · Format:{" "}
           {project.format.replaceAll("_", " ").toLowerCase()}
           {project.customFormat ? ` — ${project.customFormat}` : ""}
+          {" · "}
+          {project.aspectRatio} · {styleLabel}
         </p>
 
         {error && (
@@ -410,6 +432,81 @@ export default function ProjectDetailPage({
                       : "Generate voiceover (3 credits)"}
                 </button>
               </div>
+
+              {/* Pronunciation fixes — respell words the voice says wrong */}
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPron((v) => !v)}
+                  className="text-xs font-medium text-violet-300 hover:text-violet-200"
+                >
+                  {showPron ? "▾" : "▸"} Pronunciation fix
+                  {pronFixes.length > 0 ? ` (${pronFixes.length})` : ""}
+                </button>
+                {showPron && (
+                  <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-3">
+                    <p className="text-xs text-neutral-400">
+                      Agar koi word galat bolti hai (jaise <b>भागदौड़</b>), yahan
+                      likho aur uske saamne <b>aise likho ki sahi bole</b> (spaces
+                      ya phonetic spelling se). Voiceover me ye badal jaayega, par
+                      script waisi hi dikhegi.
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {pronFixes.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <input
+                            value={f.from}
+                            onChange={(e) =>
+                              setPronFixes((rows) =>
+                                rows.map((r, j) =>
+                                  j === i ? { ...r, from: e.target.value } : r,
+                                ),
+                              )
+                            }
+                            placeholder="Galat word (e.g. भागदौड़)"
+                            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/5 px-2 py-1.5 text-xs text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+                          />
+                          <span className="text-xs text-neutral-500">→</span>
+                          <input
+                            value={f.to}
+                            onChange={(e) =>
+                              setPronFixes((rows) =>
+                                rows.map((r, j) =>
+                                  j === i ? { ...r, to: e.target.value } : r,
+                                ),
+                              )
+                            }
+                            placeholder="Aise bolo (e.g. भाग दौड़)"
+                            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/5 px-2 py-1.5 text-xs text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPronFixes((rows) => rows.filter((_, j) => j !== i))
+                            }
+                            className="rounded-full border border-white/15 px-2 py-1 text-xs text-neutral-400 hover:text-red-300"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPronFixes((rows) => [...rows, { from: "", to: "" }])
+                      }
+                      className="mt-2 rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-neutral-200 hover:bg-white/10"
+                    >
+                      ＋ Add word
+                    </button>
+                    <p className="mt-2 text-[11px] text-neutral-500">
+                      Fix add karke dobara &quot;Regenerate voiceover&quot; dabao.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {project.voiceoverUrl && (
                 <audio
                   src={project.voiceoverUrl}

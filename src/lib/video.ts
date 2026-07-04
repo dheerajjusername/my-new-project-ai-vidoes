@@ -1,6 +1,7 @@
 import { fal } from "@/lib/fal";
 import { generateVoiceover } from "@/lib/voiceover";
 import { resolveVideoModel } from "@/lib/video-models";
+import { styleDirective } from "@/lib/image-styles";
 
 type VeoOutput = { video: { url: string } };
 type NanoBananaOutput = { images: { url: string }[] };
@@ -11,10 +12,11 @@ type LipsyncOutput = { video: { url: string } };
 async function generateFirstFrame(
   prompt: string,
   referenceImages: string[],
+  style?: string | null,
 ): Promise<string> {
   const frame = await fal.subscribe("fal-ai/nano-banana-2/edit", {
     input: {
-      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. Cinematic film still, 16:9.`,
+      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. ${styleDirective(style)}, 16:9.`,
       image_urls: referenceImages,
       aspect_ratio: "16:9",
       num_images: 1,
@@ -34,11 +36,12 @@ export async function generateShotImage(input: {
   prompt: string;
   referenceImages: string[];
   aspectRatio?: string;
+  style?: string | null;
 }): Promise<string> {
   const ar = input.aspectRatio === "9:16" ? "9:16" : "16:9";
   const result = await fal.subscribe("fal-ai/nano-banana-2/edit", {
     input: {
-      prompt: `Using the person from the reference images (same face, same look), create this cinematic scene: ${input.prompt}. Film still, ${ar}, strong composition.`,
+      prompt: `Using the person from the reference images (same face, same look), create this scene: ${input.prompt}. ${styleDirective(input.style)}, ${ar}, strong composition.`,
       image_urls: input.referenceImages,
       aspect_ratio: ar,
       num_images: 1,
@@ -63,9 +66,10 @@ export async function generateShotVideo(input: {
   dialogueLanguage?: string | null;
   voice?: string;
   referenceImages: string[];
+  style?: string | null;
 }): Promise<{ videoUrl: string; audioUrl: string | null }> {
   const model = resolveVideoModel(input.model);
-  const frameUrl = await generateFirstFrame(input.prompt, input.referenceImages);
+  const frameUrl = await generateFirstFrame(input.prompt, input.referenceImages, input.style);
   const hasDialogue = Boolean(input.dialogue?.trim());
   const duration = input.durationSec ?? 8;
 

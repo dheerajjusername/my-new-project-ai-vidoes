@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import type { VideoFormat } from "@/generated/prisma/enums";
+import { isValidImageStyle, DEFAULT_IMAGE_STYLE } from "@/lib/image-styles";
 
 const FORMATS: VideoFormat[] = [
   "TALKING",
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
   const customFormat =
     typeof body?.customFormat === "string" ? body.customFormat.trim() : null;
   const aspectRatio = body?.aspectRatio === "9:16" ? "9:16" : "16:9";
+  const imageStyle = isValidImageStyle(body?.imageStyle)
+    ? (body.imageStyle as string)
+    : DEFAULT_IMAGE_STYLE;
 
   if (!title || !brief || !characterId || !format) {
     return Response.json(
@@ -73,6 +77,7 @@ export async function POST(request: Request) {
       format,
       customFormat: format === "CUSTOM" ? customFormat : null,
       aspectRatio,
+      imageStyle,
     },
   });
   return Response.json({ project }, { status: 201 });

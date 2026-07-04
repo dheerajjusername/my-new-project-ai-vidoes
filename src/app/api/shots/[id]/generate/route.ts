@@ -63,6 +63,7 @@ export async function POST(
         prompt: shot.prompt,
         referenceImages: shot.project.character.referenceImages,
         aspectRatio: shot.project.aspectRatio,
+        style: shot.project.imageStyle,
       });
       const updated = await prisma.shot.update({
         where: { id: shot.id },
@@ -79,6 +80,7 @@ export async function POST(
       dialogueLanguage: shot.dialogueLanguage,
       voice: shot.project.character.voice,
       referenceImages: shot.project.character.referenceImages,
+      style: shot.project.imageStyle,
     });
     const updated = await prisma.shot.update({
       where: { id: shot.id },

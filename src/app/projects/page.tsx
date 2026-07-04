@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { redirectIfLoggedOut } from "@/components/auth-nav";
 import { SiteHeader } from "@/components/site-header";
 import { VOICES, DEFAULT_VOICE } from "@/lib/voices";
+import { IMAGE_STYLES, DEFAULT_IMAGE_STYLE } from "@/lib/image-styles";
 
 type Character = { id: string; name: string; status: string };
 type Project = {
@@ -64,6 +65,7 @@ export default function ProjectsPage() {
   const [format, setFormat] = useState("TALKING");
   const [customFormat, setCustomFormat] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [imageStyle, setImageStyle] = useState(DEFAULT_IMAGE_STYLE);
   // Character source: pick an existing one or create a new one inline.
   const [charSource, setCharSource] = useState<"existing" | "new">("existing");
   const [newCharName, setNewCharName] = useState("");
@@ -207,7 +209,7 @@ export default function ProjectsPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, brief, characterId: useCharacterId, format, customFormat, aspectRatio }),
+        body: JSON.stringify({ title, brief, characterId: useCharacterId, format, customFormat, aspectRatio, imageStyle }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -408,6 +410,31 @@ export default function ProjectsPage() {
               </button>
             ))}
           </div>
+
+          {/* Image style — the look of every generated image/frame */}
+          <label className="mt-4 block text-sm font-medium">Image style</label>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {IMAGE_STYLES.map((s) => (
+              <button
+                type="button"
+                key={s.id}
+                onClick={() => setImageStyle(s.id)}
+                className={
+                  "rounded-xl border px-3 py-2 text-left text-sm transition " +
+                  (imageStyle === s.id
+                    ? "border-violet-400 bg-violet-500/10 text-white"
+                    : "border-white/15 bg-white/5 text-neutral-300 hover:border-white/30")
+                }
+              >
+                <span className="mr-1">{s.emoji}</span>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-neutral-500">
+            Character ka chehra reference photos se hi aayega — style sirf look
+            badalti hai (real, anime, cartoon, Pixar, etc.).
+          </p>
 
           {/* UGC-specific inputs: person + product photos + consent */}
           {format === "UGC_PRODUCT_AD" && (
