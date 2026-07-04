@@ -12,6 +12,38 @@ export const CREDIT_COSTS = {
 
 export type CreditAction = keyof typeof CREDIT_COSTS;
 
+/** Atomically reserve an explicit number of credits (e.g. a model's cost). */
+export async function reserveCreditsAmount(
+  userId: string,
+  amount: number,
+): Promise<boolean> {
+  if (amount <= 0) return true;
+  const affected = await prisma.$executeRaw`
+    UPDATE "User" SET credits = credits - ${amount}
+    WHERE id = ${userId} AND credits >= ${amount}
+  `;
+  return affected > 0;
+}
+
+/** Refund an explicit number of credits. */
+export async function refundCreditsAmount(userId: string, amount: number) {
+  if (amount <= 0) return;
+  await prisma.user.update({
+    where: { id: userId },
+    data: { credits: { increment: amount } },
+  });
+}
+
+export function insufficientCreditsAmount(amount: number) {
+  return Response.json(
+    {
+      error: `Not enough credits — this needs ${amount} credits. Top up to continue.`,
+      code: "INSUFFICIENT_CREDITS",
+    },
+    { status: 402 },
+  );
+}
+
 /**
  * Atomically reserves credits before a paid action. Returns true if the
  * user had enough (and the balance was decremented), false otherwise.

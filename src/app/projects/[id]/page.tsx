@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { redirectIfLoggedOut } from "@/components/auth-nav";
 import { SiteHeader } from "@/components/site-header";
+import { VIDEO_MODELS, DEFAULT_VIDEO_MODEL } from "@/lib/video-models";
 
 type Shot = {
   id: string;
@@ -43,6 +44,7 @@ export default function ProjectDetailPage({
   const [stitching, setStitching] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [videoModel, setVideoModel] = useState<string>(DEFAULT_VIDEO_MODEL);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -80,7 +82,11 @@ export default function ProjectDetailPage({
     setGeneratingShotId(shotId);
     setError(null);
     try {
-      const res = await fetch(`/api/shots/${shotId}/generate`, { method: "POST" });
+      const res = await fetch(`/api/shots/${shotId}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: videoModel }),
+      });
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Something went wrong");
       await load();
@@ -100,7 +106,11 @@ export default function ProjectDetailPage({
     for (const shot of pending) {
       setGeneratingShotId(shot.id);
       try {
-        const res = await fetch(`/api/shots/${shot.id}/generate`, { method: "POST" });
+        const res = await fetch(`/api/shots/${shot.id}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: videoModel }),
+        });
         const data = await res.json();
         if (!res.ok) {
           setError(data.error ?? "A shot failed — stopped here.");
@@ -184,6 +194,8 @@ export default function ProjectDetailPage({
     project.shots.length > 0 && completedCount === project.shots.length;
   const anyPending = project.shots.some((s) => s.status !== "COMPLETED");
   const busy = generatingAll || generatingShotId !== null || planning;
+  const modelCredits = VIDEO_MODELS[videoModel as keyof typeof VIDEO_MODELS]?.credits ?? 25;
+  const pendingCount = project.shots.filter((s) => s.status !== "COMPLETED").length;
 
   return (
     <div className="flex-1 text-neutral-100">
@@ -279,7 +291,7 @@ export default function ProjectDetailPage({
                 >
                   {generatingAll
                     ? "Generating all shots…"
-                    : `Generate all shots (${25 * project.shots.filter((s) => s.status !== "COMPLETED").length} credits)`}
+                    : `Generate all shots (${modelCredits * pendingCount} credits)`}
                 </button>
               )}
               <button
@@ -303,6 +315,31 @@ export default function ProjectDetailPage({
                 className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all"
                 style={{ width: `${(completedCount / project.shots.length) * 100}%` }}
               />
+            </div>
+          )}
+
+          {/* Video model picker */}
+          {project.shots.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <label className="text-sm text-neutral-400" htmlFor="videoModel">
+                Video model
+              </label>
+              <select
+                id="videoModel"
+                value={videoModel}
+                onChange={(e) => setVideoModel(e.target.value)}
+                disabled={busy}
+                className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white outline-none focus:border-violet-400 disabled:opacity-50"
+              >
+                {Object.values(VIDEO_MODELS).map((m) => (
+                  <option key={m.key} value={m.key} className="bg-neutral-900">
+                    {m.label} — {m.credits} credits/shot
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-neutral-500">
+                {VIDEO_MODELS[videoModel as keyof typeof VIDEO_MODELS]?.description}
+              </span>
             </div>
           )}
 
@@ -414,8 +451,8 @@ export default function ProjectDetailPage({
                         {generatingShotId === shot.id
                           ? "Generating (~1-2 min)…"
                           : shot.status === "COMPLETED"
-                            ? "Regenerate (25 credits)"
-                            : "Generate video (25 credits)"}
+                            ? `Regenerate (${modelCredits} credits)`
+                            : `Generate video (${modelCredits} credits)`}
                       </button>
                     )}
                   </div>

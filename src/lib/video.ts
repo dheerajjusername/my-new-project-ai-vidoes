@@ -1,31 +1,30 @@
 import { fal } from "@/lib/fal";
 import { generateVoiceover } from "@/lib/voiceover";
+import { resolveVideoModel } from "@/lib/video-models";
 
 type VeoOutput = { video: { url: string } };
 type NanoBananaOutput = { images: { url: string }[] };
 type LipsyncOutput = { video: { url: string } };
 
 /**
- * Generates one 8-second shot. Two pipelines:
- *
- * WITHOUT dialogue (~$0.48):
+ * Generates one shot. Pipeline:
  *   1. Nano Banana 2 Edit composes the first frame from the character's
  *      reference images (keeps the face consistent).
- *   2. Veo 3.1 Lite image-to-video animates it with ambient audio.
- *
- * WITH dialogue (~$0.38 — and perfect lip-sync):
- *   1. Same first frame.
- *   2. Veo animates it WITHOUT audio (cheaper).
- *   3. ElevenLabs speaks the dialogue in the character's voice.
- *   4. VEED lipsync matches the mouth to that audio.
+ *   2. The chosen video model (Veo, Kling, …) animates that frame. With
+ *      dialogue we animate silently — ElevenLabs + VEED replace the audio.
+ *   3. (dialogue only) ElevenLabs speaks the line in the character's voice.
+ *   4. (dialogue only) VEED lip-syncs the mouth to that audio.
  */
 export async function generateShotVideo(input: {
   prompt: string;
+  model?: string | null;
   dialogue?: string | null;
   dialogueLanguage?: string | null;
   voice?: string;
   referenceImages: string[];
 }): Promise<{ videoUrl: string; audioUrl: string | null }> {
+  const model = resolveVideoModel(input.model);
+
   // Step 1: first frame with the character composited into the scene.
   const frame = await fal.subscribe("fal-ai/nano-banana-2/edit", {
     input: {
@@ -40,19 +39,12 @@ export async function generateShotVideo(input: {
 
   const hasDialogue = Boolean(input.dialogue?.trim());
 
-  // Step 2: animate the frame with Veo 3.1 Lite.
-  // With dialogue we skip Veo's own audio — ElevenLabs + lipsync replace it.
-  const veo = await fal.subscribe("fal-ai/veo3.1/lite/image-to-video", {
-    input: {
-      prompt: input.prompt,
-      image_url: frameUrl,
-      duration: "8s",
-      resolution: "720p",
-      generate_audio: !hasDialogue,
-    },
+  // Step 2: animate the frame with the chosen model.
+  const clip = await fal.subscribe(model.endpoint, {
+    input: model.buildInput(frameUrl, input.prompt, !hasDialogue),
   });
-  const rawVideoUrl = (veo.data as VeoOutput).video?.url;
-  if (!rawVideoUrl) throw new Error("Veo returned no video");
+  const rawVideoUrl = (clip.data as VeoOutput).video?.url;
+  if (!rawVideoUrl) throw new Error(`${model.label} returned no video`);
 
   if (!hasDialogue) {
     return { videoUrl: rawVideoUrl, audioUrl: null };
@@ -67,10 +59,7 @@ export async function generateShotVideo(input: {
 
   // Step 4: lip-sync the mouth to the audio.
   const synced = await fal.subscribe("veed/lipsync", {
-    input: {
-      video_url: rawVideoUrl,
-      audio_url: audioUrl,
-    },
+    input: { video_url: rawVideoUrl, audio_url: audioUrl },
   });
   const videoUrl = (synced.data as LipsyncOutput).video?.url;
   if (!videoUrl) throw new Error("Lipsync returned no video");

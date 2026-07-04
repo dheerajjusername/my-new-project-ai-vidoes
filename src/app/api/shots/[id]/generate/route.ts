@@ -4,14 +4,21 @@ export const maxDuration = 300;
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateShotVideo } from "@/lib/video";
-import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
+import { resolveVideoModel } from "@/lib/video-models";
+import {
+  reserveCreditsAmount,
+  refundCreditsAmount,
+  insufficientCreditsAmount,
+} from "@/lib/credits";
 
-// Generates the video clip for a single shot (~$0.40 per 8s at 720p).
+// Generates the video clip for a single shot. Cost depends on the model.
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const body = await request.json().catch(() => null);
+
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   const shot = await prisma.shot.findFirst({
@@ -25,13 +32,18 @@ export async function POST(
     return Response.json({ error: "shot is already generating" }, { status: 409 });
   }
 
-  if (!(await reserveCredits(user.id, "shotVideo"))) {
-    return insufficientCredits("shotVideo");
+  // Pick the model: request body overrides the shot's stored choice.
+  const model = resolveVideoModel(
+    typeof body?.model === "string" ? body.model : shot.model,
+  );
+
+  if (!(await reserveCreditsAmount(user.id, model.credits))) {
+    return insufficientCreditsAmount(model.credits);
   }
 
   await prisma.shot.update({
     where: { id: shot.id },
-    data: { status: "GENERATING", lastError: null },
+    data: { status: "GENERATING", model: model.key, lastError: null },
   });
   await prisma.project.update({
     where: { id: shot.projectId },
@@ -41,6 +53,7 @@ export async function POST(
   try {
     const { videoUrl, audioUrl } = await generateShotVideo({
       prompt: shot.prompt,
+      model: model.key,
       dialogue: shot.dialogue,
       dialogueLanguage: shot.dialogueLanguage,
       voice: shot.project.character.voice,
@@ -52,7 +65,7 @@ export async function POST(
     });
     return Response.json({ shot: updated });
   } catch (error) {
-    await refundCredits(user.id, "shotVideo");
+    await refundCreditsAmount(user.id, model.credits);
     const message = error instanceof Error ? error.message : "generation failed";
     await prisma.shot.update({
       where: { id: shot.id },
