@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { redirectIfLoggedOut } from "@/components/auth-nav";
 import { SiteHeader } from "@/components/site-header";
+import { VOICES, DEFAULT_VOICE } from "@/lib/voices";
 
 type Character = {
   id: string;
@@ -20,7 +21,9 @@ export default function CharactersPage() {
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [voice, setVoice] = useState<string>(DEFAULT_VOICE);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadCharacters = useCallback(async () => {
@@ -43,6 +46,22 @@ export default function CharactersPage() {
     const file = e.target.files?.[0] ?? null;
     setPhotoFile(file);
     setPhotoPreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  async function deleteCharacter(id: string, cname: string) {
+    if (!confirm(`Delete character "${cname}"? This can't be undone.`)) return;
+    setDeletingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/characters/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Delete failed");
+      await loadCharacters();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -74,7 +93,7 @@ export default function CharactersPage() {
       const res = await fetch("/api/characters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, photoUrl }),
+        body: JSON.stringify({ name, description, photoUrl, voice }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -184,6 +203,35 @@ export default function CharactersPage() {
             }
             className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
           />
+
+          <label className="mt-4 block text-sm font-medium" htmlFor="voice">
+            Voice{" "}
+            <span className="font-normal text-neutral-500">
+              (used when this character speaks)
+            </span>
+          </label>
+          <select
+            id="voice"
+            value={voice}
+            onChange={(e) => setVoice(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+          >
+            <optgroup label="Female" className="bg-neutral-900">
+              {VOICES.filter((v) => v.gender === "female").map((v) => (
+                <option key={v.id} value={v.id} className="bg-neutral-900">
+                  {v.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Male" className="bg-neutral-900">
+              {VOICES.filter((v) => v.gender === "male").map((v) => (
+                <option key={v.id} value={v.id} className="bg-neutral-900">
+                  {v.label}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+
           <button
             type="submit"
             disabled={creating}
@@ -218,18 +266,28 @@ export default function CharactersPage() {
                     {c.description}
                   </p>
                 </div>
-                <span
-                  className={
-                    "rounded-full px-3 py-1 text-xs font-medium " +
-                    (c.status === "READY"
-                      ? "bg-emerald-500/15 text-emerald-300"
-                      : c.status === "FAILED"
-                        ? "bg-red-500/15 text-red-300"
-                        : "bg-amber-500/15 text-amber-300")
-                  }
-                >
-                  {c.status}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={
+                      "rounded-full px-3 py-1 text-xs font-medium " +
+                      (c.status === "READY"
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : c.status === "FAILED"
+                          ? "bg-red-500/15 text-red-300"
+                          : "bg-amber-500/15 text-amber-300")
+                    }
+                  >
+                    {c.status}
+                  </span>
+                  <button
+                    onClick={() => deleteCharacter(c.id, c.name)}
+                    disabled={deletingId === c.id}
+                    title="Delete character"
+                    className="rounded-full border border-white/15 px-3 py-1 text-xs text-neutral-400 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                  >
+                    {deletingId === c.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
               </div>
               {c.referenceImages.length > 0 && (
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">

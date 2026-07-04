@@ -33,6 +33,7 @@ export default function ProjectsPage() {
   const [format, setFormat] = useState("TALKING");
   const [customFormat, setCustomFormat] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -57,6 +58,22 @@ export default function ProjectsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function deleteProject(id: string, ptitle: string) {
+    if (!confirm(`Delete project "${ptitle}" and all its shots? This can't be undone.`)) return;
+    setDeletingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Delete failed");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -199,24 +216,31 @@ export default function ProjectsPage() {
             </p>
           )}
           {projects.map((p) => (
-            <a
+            <div
               key={p.id}
-              href={`/projects/${p.id}`}
-              className="block glass rounded-2xl p-5 hover:border-neutral-400"
+              className="glass flex items-center justify-between rounded-2xl p-5"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-white">{p.title}</h3>
-                  <p className="mt-1 text-sm text-neutral-400">
-                    {p.character.name} · {p.format.replaceAll("_", " ").toLowerCase()} ·{" "}
-                    {p.shots.length} shot{p.shots.length === 1 ? "" : "s"}
-                  </p>
-                </div>
+              <a href={`/projects/${p.id}`} className="min-w-0 flex-1 hover:opacity-90">
+                <h3 className="font-medium text-white">{p.title}</h3>
+                <p className="mt-1 text-sm text-neutral-400">
+                  {p.character.name} · {p.format.replaceAll("_", " ").toLowerCase()} ·{" "}
+                  {p.shots.length} shot{p.shots.length === 1 ? "" : "s"}
+                </p>
+              </a>
+              <div className="ml-4 flex shrink-0 items-center gap-3">
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-neutral-300">
                   {p.status.replaceAll("_", " ")}
                 </span>
+                <button
+                  onClick={() => deleteProject(p.id, p.title)}
+                  disabled={deletingId === p.id}
+                  title="Delete project"
+                  className="rounded-full border border-white/15 px-3 py-1 text-xs text-neutral-400 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+                >
+                  {deletingId === p.id ? "Deleting…" : "Delete"}
+                </button>
               </div>
-            </a>
+            </div>
           ))}
         </div>
       </main>

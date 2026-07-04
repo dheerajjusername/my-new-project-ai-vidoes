@@ -8,6 +8,7 @@ import {
 } from "@/lib/character-images";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
+import { isValidVoice, DEFAULT_VOICE } from "@/lib/voices";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     typeof body?.description === "string" ? body.description.trim() : "";
   const photoUrl =
     typeof body?.photoUrl === "string" && body.photoUrl ? body.photoUrl : null;
+  const voice = isValidVoice(body?.voice) ? body.voice : DEFAULT_VOICE;
 
   // Either a text description or an uploaded photo is required.
   if (!name || (!description && !photoUrl)) {
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
       userId: user.id,
       name,
       description: description || "Character from an uploaded photo",
+      voice,
       status: "GENERATING",
     },
   });
