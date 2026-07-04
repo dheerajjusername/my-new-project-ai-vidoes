@@ -6,42 +6,69 @@ type VeoOutput = { video: { url: string } };
 type NanoBananaOutput = { images: { url: string }[] };
 type LipsyncOutput = { video: { url: string } };
 
+// Generate the first frame of a shot from the character's reference images.
+// This is what keeps the face consistent across every shot.
+async function generateFirstFrame(
+  prompt: string,
+  referenceImages: string[],
+): Promise<string> {
+  const frame = await fal.subscribe("fal-ai/nano-banana-2/edit", {
+    input: {
+      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. Cinematic film still, 16:9.`,
+      image_urls: referenceImages,
+      aspect_ratio: "16:9",
+      num_images: 1,
+    },
+  });
+  const url = (frame.data as NanoBananaOutput).images[0]?.url;
+  if (!url) throw new Error("First-frame generation returned no image");
+  return url;
+}
+
 /**
- * Generates one shot. Pipeline:
- *   1. Nano Banana 2 Edit composes the first frame from the character's
- *      reference images (keeps the face consistent).
- *   2. The chosen video model (Veo, Kling, …) animates that frame. With
- *      dialogue we animate silently — ElevenLabs + VEED replace the audio.
- *   3. (dialogue only) ElevenLabs speaks the line in the character's voice.
- *   4. (dialogue only) VEED lip-syncs the mouth to that audio.
+ * IMAGE building block: a single still scene featuring the character.
+ * Used by static-storytelling and any image shot. Ken Burns motion is
+ * added later at stitch time. Cost: ~$0.08 (one Nano Banana image).
+ */
+export async function generateShotImage(input: {
+  prompt: string;
+  referenceImages: string[];
+}): Promise<string> {
+  const result = await fal.subscribe("fal-ai/nano-banana-2/edit", {
+    input: {
+      prompt: `Using the person from the reference images (same face, same look), create this cinematic scene: ${input.prompt}. Film still, 16:9, strong composition.`,
+      image_urls: input.referenceImages,
+      aspect_ratio: "16:9",
+      num_images: 1,
+    },
+  });
+  const url = (result.data as NanoBananaOutput).images[0]?.url;
+  if (!url) throw new Error("Image generation returned no image");
+  return url;
+}
+
+/**
+ * VIDEO building block. Pipeline:
+ *   1. Nano Banana first frame (consistent face).
+ *   2. The chosen model animates it for the shot's duration.
+ *   3. (dialogue only) ElevenLabs voice + VEED lip-sync.
  */
 export async function generateShotVideo(input: {
   prompt: string;
   model?: string | null;
+  durationSec?: number | null;
   dialogue?: string | null;
   dialogueLanguage?: string | null;
   voice?: string;
   referenceImages: string[];
 }): Promise<{ videoUrl: string; audioUrl: string | null }> {
   const model = resolveVideoModel(input.model);
-
-  // Step 1: first frame with the character composited into the scene.
-  const frame = await fal.subscribe("fal-ai/nano-banana-2/edit", {
-    input: {
-      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${input.prompt}. Cinematic film still, 16:9.`,
-      image_urls: input.referenceImages,
-      aspect_ratio: "16:9",
-      num_images: 1,
-    },
-  });
-  const frameUrl = (frame.data as NanoBananaOutput).images[0]?.url;
-  if (!frameUrl) throw new Error("First-frame generation returned no image");
-
+  const frameUrl = await generateFirstFrame(input.prompt, input.referenceImages);
   const hasDialogue = Boolean(input.dialogue?.trim());
+  const duration = input.durationSec ?? 8;
 
-  // Step 2: animate the frame with the chosen model.
   const clip = await fal.subscribe(model.endpoint, {
-    input: model.buildInput(frameUrl, input.prompt, !hasDialogue),
+    input: model.buildInput(frameUrl, input.prompt, !hasDialogue, duration),
   });
   const rawVideoUrl = (clip.data as VeoOutput).video?.url;
   if (!rawVideoUrl) throw new Error(`${model.label} returned no video`);
@@ -50,14 +77,12 @@ export async function generateShotVideo(input: {
     return { videoUrl: rawVideoUrl, audioUrl: null };
   }
 
-  // Step 3: speak the dialogue in the character's voice.
   const audioUrl = await generateVoiceover({
     text: input.dialogue!.trim(),
     voice: input.voice,
     languageCode: input.dialogueLanguage,
   });
 
-  // Step 4: lip-sync the mouth to the audio.
   const synced = await fal.subscribe("veed/lipsync", {
     input: { video_url: rawVideoUrl, audio_url: audioUrl },
   });

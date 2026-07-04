@@ -38,6 +38,10 @@ model Character {
   // ElevenLabs voice used whenever this character speaks (consistent voice
   // across every video, like the face).
   voice           String    @default("Rachel")
+  // For UGC ads: a composited "anchor" image where the person holds the
+  // product, generated from the person photo + product photo. Passed to
+  // the video model so the person-with-product stays consistent.
+  compositeAnchor String?
   status          CharacterStatus @default(PENDING)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -77,6 +81,12 @@ model Shot {
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   // Position of this shot in the final video (0, 1, 2, ...).
   orderIndex Int
+  // Building block: VIDEO (animated with Veo/Kling) or IMAGE (a still,
+  // later given a Ken Burns pan/zoom by FFmpeg).
+  type       ShotType   @default(VIDEO)
+  // Camera framing hint the Creative Director chose (e.g. "close-up",
+  // "wide shot"). Woven into the prompt; also useful for the UI.
+  cameraAngle String?
   // The full prompt sent to the video model for this shot.
   prompt     String
   // Exact words the character speaks in this shot (null = no dialogue).
@@ -133,4 +143,9 @@ enum ShotStatus {
   GENERATING // Veo is generating this clip
   COMPLETED  // clip ready
   FAILED     // generation failed (can be retried individually)
+}
+
+enum ShotType {
+  VIDEO // animated clip (Veo / Kling)
+  IMAGE // still image (Ken Burns pan/zoom applied at stitch time)
 }

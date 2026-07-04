@@ -16,12 +16,42 @@ type Project = {
 };
 
 const FORMAT_OPTIONS = [
-  { value: "TALKING", label: "Talking (single scene)" },
-  { value: "MOTION_STORYTELLING", label: "Motion Storytelling" },
-  { value: "STATIC_STORYTELLING", label: "Static Storytelling" },
-  { value: "TALKING_MICRODRAMA", label: "Talking Microdrama" },
-  { value: "UGC_PRODUCT_AD", label: "UGC Product Ad" },
-  { value: "CUSTOM", label: "Custom format" },
+  {
+    value: "TALKING",
+    label: "Talking",
+    desc: "Character speaks straight to camera in one scene.",
+    cost: "~30–55 credits",
+  },
+  {
+    value: "MOTION_STORYTELLING",
+    label: "Motion Storytelling",
+    desc: "Character moves through scenes; voiceover narrates.",
+    cost: "~80–130 credits",
+  },
+  {
+    value: "STATIC_STORYTELLING",
+    label: "Static Storytelling",
+    desc: "Still images with slow motion + narration. Cheapest.",
+    cost: "~55–90 credits",
+  },
+  {
+    value: "TALKING_MICRODRAMA",
+    label: "Talking Microdrama",
+    desc: "Mini film — speaks AND changes scenes.",
+    cost: "~80–130 credits",
+  },
+  {
+    value: "UGC_PRODUCT_AD",
+    label: "UGC Product Ad",
+    desc: "Casual phone-style testimonial with a product.",
+    cost: "~80–105 credits",
+  },
+  {
+    value: "CUSTOM",
+    label: "Custom",
+    desc: "Describe your own idea — AI decides the shots.",
+    cost: "varies",
+  },
 ];
 
 export default function ProjectsPage() {
@@ -154,21 +184,28 @@ export default function ProjectsPage() {
             </p>
           )}
 
-          <label className="mt-4 block text-sm font-medium" htmlFor="format">
-            Format
-          </label>
-          <select
-            id="format"
-            value={format}
-            onChange={(e) => setFormat(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
-          >
+          <label className="mt-4 block text-sm font-medium">Format</label>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {FORMAT_OPTIONS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
+              <button
+                type="button"
+                key={f.value}
+                onClick={() => setFormat(f.value)}
+                className={
+                  "rounded-xl border p-3 text-left transition " +
+                  (format === f.value
+                    ? "border-violet-400 bg-violet-500/10"
+                    : "border-white/15 bg-white/5 hover:border-white/30")
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-white">{f.label}</span>
+                  <span className="text-[10px] text-neutral-400">{f.cost}</span>
+                </div>
+                <p className="mt-1 text-xs text-neutral-400">{f.desc}</p>
+              </button>
             ))}
-          </select>
+          </div>
 
           {format === "CUSTOM" && (
             <>

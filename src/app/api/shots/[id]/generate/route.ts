@@ -3,15 +3,17 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
-import { generateShotVideo } from "@/lib/video";
+import { generateShotVideo, generateShotImage } from "@/lib/video";
 import { resolveVideoModel } from "@/lib/video-models";
 import {
   reserveCreditsAmount,
   refundCreditsAmount,
   insufficientCreditsAmount,
+  CREDIT_COSTS,
 } from "@/lib/credits";
 
-// Generates the video clip for a single shot. Cost depends on the model.
+// Renders one shot. VIDEO shots animate a clip; IMAGE shots produce a still
+// (Ken Burns motion is added later at stitch time).
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -32,18 +34,23 @@ export async function POST(
     return Response.json({ error: "shot is already generating" }, { status: 409 });
   }
 
-  // Pick the model: request body overrides the shot's stored choice.
+  const isImage = shot.type === "IMAGE";
   const model = resolveVideoModel(
     typeof body?.model === "string" ? body.model : shot.model,
   );
+  const cost = isImage ? CREDIT_COSTS.shotImage : model.credits;
 
-  if (!(await reserveCreditsAmount(user.id, model.credits))) {
-    return insufficientCreditsAmount(model.credits);
+  if (!(await reserveCreditsAmount(user.id, cost))) {
+    return insufficientCreditsAmount(cost);
   }
 
   await prisma.shot.update({
     where: { id: shot.id },
-    data: { status: "GENERATING", model: model.key, lastError: null },
+    data: {
+      status: "GENERATING",
+      model: isImage ? shot.model : model.key,
+      lastError: null,
+    },
   });
   await prisma.project.update({
     where: { id: shot.projectId },
@@ -51,9 +58,22 @@ export async function POST(
   });
 
   try {
+    if (isImage) {
+      const imageUrl = await generateShotImage({
+        prompt: shot.prompt,
+        referenceImages: shot.project.character.referenceImages,
+      });
+      const updated = await prisma.shot.update({
+        where: { id: shot.id },
+        data: { status: "COMPLETED", videoUrl: imageUrl, audioUrl: null },
+      });
+      return Response.json({ shot: updated });
+    }
+
     const { videoUrl, audioUrl } = await generateShotVideo({
       prompt: shot.prompt,
       model: model.key,
+      durationSec: shot.durationSec,
       dialogue: shot.dialogue,
       dialogueLanguage: shot.dialogueLanguage,
       voice: shot.project.character.voice,
@@ -65,14 +85,14 @@ export async function POST(
     });
     return Response.json({ shot: updated });
   } catch (error) {
-    await refundCreditsAmount(user.id, model.credits);
+    await refundCreditsAmount(user.id, cost);
     const message = error instanceof Error ? error.message : "generation failed";
     await prisma.shot.update({
       where: { id: shot.id },
       data: { status: "FAILED", lastError: message },
     });
     return Response.json(
-      { error: `Video generation failed: ${message}` },
+      { error: `Generation failed: ${message}` },
       { status: 502 },
     );
   }

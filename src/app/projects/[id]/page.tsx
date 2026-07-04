@@ -8,6 +8,8 @@ import { VIDEO_MODELS, DEFAULT_VIDEO_MODEL } from "@/lib/video-models";
 type Shot = {
   id: string;
   orderIndex: number;
+  type: "VIDEO" | "IMAGE";
+  cameraAngle: string | null;
   prompt: string;
   dialogue: string | null;
   status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
@@ -196,6 +198,11 @@ export default function ProjectDetailPage({
   const busy = generatingAll || generatingShotId !== null || planning;
   const modelCredits = VIDEO_MODELS[videoModel as keyof typeof VIDEO_MODELS]?.credits ?? 25;
   const pendingCount = project.shots.filter((s) => s.status !== "COMPLETED").length;
+  const pendingCost = project.shots
+    .filter((s) => s.status !== "COMPLETED")
+    .reduce((sum, s) => sum + (s.type === "IMAGE" ? 8 : modelCredits), 0);
+  // Formats made only of image shots don't need a video model.
+  const anyVideoShot = project.shots.some((s) => s.type === "VIDEO");
 
   return (
     <div className="flex-1 text-neutral-100">
@@ -291,7 +298,7 @@ export default function ProjectDetailPage({
                 >
                   {generatingAll
                     ? "Generating all shots…"
-                    : `Generate all shots (${modelCredits * pendingCount} credits)`}
+                    : `Generate all shots (${pendingCost} credits)`}
                 </button>
               )}
               <button
@@ -318,8 +325,8 @@ export default function ProjectDetailPage({
             </div>
           )}
 
-          {/* Video model picker */}
-          {project.shots.length > 0 && (
+          {/* Video model picker — only when there are video shots */}
+          {project.shots.length > 0 && anyVideoShot && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <label className="text-sm text-neutral-400" htmlFor="videoModel">
                 Video model
@@ -415,7 +422,9 @@ export default function ProjectDetailPage({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <span className="text-xs font-medium text-neutral-500">
-                      SHOT {shot.orderIndex + 1} · {shot.durationSec ?? 8}s
+                      SHOT {shot.orderIndex + 1} · {shot.type === "IMAGE" ? "IMAGE" : "VIDEO"} ·{" "}
+                      {shot.durationSec ?? 8}s
+                      {shot.cameraAngle ? ` · ${shot.cameraAngle}` : ""}
                     </span>
                     <p className="mt-1 text-sm text-neutral-300">{shot.prompt}</p>
                     {shot.dialogue && (
@@ -449,29 +458,39 @@ export default function ProjectDetailPage({
                         className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-medium text-neutral-200 hover:bg-white/10 disabled:opacity-50"
                       >
                         {generatingShotId === shot.id
-                          ? "Generating (~1-2 min)…"
-                          : shot.status === "COMPLETED"
-                            ? `Regenerate (${modelCredits} credits)`
-                            : `Generate video (${modelCredits} credits)`}
+                          ? "Generating…"
+                          : `${shot.status === "COMPLETED" ? "Regenerate" : shot.type === "IMAGE" ? "Generate image" : "Generate video"} (${shot.type === "IMAGE" ? 8 : modelCredits} credits)`}
                       </button>
                     )}
                   </div>
                 </div>
                 {shot.videoUrl && (
                   <div className="mt-4">
-                    <video
-                      src={shot.videoUrl}
-                      controls
-                      className="w-full max-w-xl rounded-lg border border-white/10"
-                    />
+                    {shot.type === "IMAGE" ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={shot.videoUrl}
+                        alt={`Shot ${shot.orderIndex + 1}`}
+                        className="w-full max-w-xl rounded-lg border border-white/10"
+                      />
+                    ) : (
+                      <video
+                        src={shot.videoUrl}
+                        controls
+                        className="w-full max-w-xl rounded-lg border border-white/10"
+                      />
+                    )}
                     <button
                       onClick={() =>
-                        downloadFile(shot.videoUrl!, `shot-${shot.orderIndex + 1}.mp4`)
+                        downloadFile(
+                          shot.videoUrl!,
+                          `shot-${shot.orderIndex + 1}.${shot.type === "IMAGE" ? "png" : "mp4"}`,
+                        )
                       }
                       disabled={downloading}
                       className="mt-2 text-xs font-medium text-neutral-400 hover:text-white disabled:opacity-50"
                     >
-                      ⬇ Download this clip
+                      ⬇ Download this {shot.type === "IMAGE" ? "image" : "clip"}
                     </button>
                   </div>
                 )}

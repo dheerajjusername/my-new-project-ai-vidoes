@@ -3,19 +3,75 @@ import type { VideoFormat } from "@/generated/prisma/enums";
 
 const anthropic = new Anthropic();
 
-// What each format means for the shot structure Claude should produce.
-const FORMAT_GUIDES: Record<VideoFormat, string> = {
-  TALKING:
-    "A single continuous scene: the character talks directly to the camera. Exactly 1 shot with dialogue.",
-  MOTION_STORYTELLING:
-    "A short story told across 3-5 shots with the character moving through different scenes and actions. Dialogue optional per shot.",
-  STATIC_STORYTELLING:
-    "A narrated story over 3-5 mostly still, cinematic shots. Minimal character movement, strong composition. Usually no on-camera dialogue.",
-  TALKING_MICRODRAMA:
-    "A short dramatic mini-episode across 2-4 shots, dialogue-driven, with emotional beats.",
-  UGC_PRODUCT_AD:
-    "A casual creator-style product ad across 2-4 shots: hook, product demo, recommendation. Feels like a phone-shot testimonial. Most shots have dialogue.",
-  CUSTOM: "Follow the user's custom format description.",
+// Per-format direction for the Creative Director. Each format is just a
+// preset over the shared shot building blocks (type, dialogue, angle,
+// duration) — the engine is the same, only these instructions differ.
+type FormatDirective = {
+  guide: string;
+  allowImages: boolean; // may the format use IMAGE shots?
+};
+
+const FORMAT_DIRECTIVES: Record<VideoFormat, FormatDirective> = {
+  TALKING: {
+    allowImages: false,
+    guide: [
+      "TALKING format — a single continuous scene, character speaking straight to camera.",
+      "Produce 1 shot (2 only if the message truly needs it). Every shot is type 'video' with dialogue.",
+      "The background, framing and camera angle stay IDENTICAL across shots — no scene change, only speech.",
+      "Use one consistent cameraAngle like 'medium close-up, front-facing, eye-level'.",
+      "Write the dialogue as a tight ad script: a punchy hook, the main message, and a clear call-to-action — all spoken by the character.",
+      "durationSec: 8.",
+    ].join("\n"),
+  },
+  MOTION_STORYTELLING: {
+    allowImages: false,
+    guide: [
+      "MOTION STORYTELLING — the character MOVES through different locations and actions but does NOT speak.",
+      "Produce 3-5 shots, each type 'video' with NO dialogue (empty dialogue array).",
+      "Give it a story arc: hook → tension/conflict → resolution. Each shot is a different location/action.",
+      "In each shot's promptText, describe the character's action and the scene vividly (walking, sitting, gesturing, looking).",
+      "Vary cameraAngle per shot (wide establishing, tracking, close-up, etc.). durationSec: 8.",
+    ].join("\n"),
+  },
+  STATIC_STORYTELLING: {
+    allowImages: true,
+    guide: [
+      "STATIC STORYTELLING — NO video at all. Only still IMAGES.",
+      "Produce 6-10 shots, each type 'image', NO dialogue.",
+      "Each image is a different cinematic scene featuring the same character, telling a story in sequence.",
+      "Strong composition and lighting per shot; a slow pan/zoom (Ken Burns) will be added later, so compose with headroom.",
+      "Vary cameraAngle per shot. durationSec: 6 (how long each image is shown).",
+    ].join("\n"),
+  },
+  TALKING_MICRODRAMA: {
+    allowImages: false,
+    guide: [
+      "TALKING MICRODRAMA — a mini film: the character SPEAKS and the scenes also CHANGE.",
+      "Produce 3-5 shots, each type 'video' WITH dialogue, each in a different location.",
+      "Build an emotional arc: problem → journey → resolution, one beat per shot.",
+      "Each line of dialogue must be short enough to speak within 8 seconds (max ~20 words).",
+      "Vary cameraAngle to match the emotion. durationSec: 8.",
+    ].join("\n"),
+  },
+  UGC_PRODUCT_AD: {
+    allowImages: false,
+    guide: [
+      "UGC PRODUCT AD — casual, authentic, phone-shot testimonial featuring the person WITH the product.",
+      "Produce 3-4 shots, type 'video'. Structure: hook (talking to camera) → product reveal → use/demo → call-to-action.",
+      "The hook and CTA shots have dialogue; the reveal/demo may have dialogue or not.",
+      "Script style: casual and authentic like a real creator — NOT salesy or corporate.",
+      "Every promptText MUST include phone-UGC cues: 'shot on phone front camera, handheld, natural lighting, authentic UGC style'.",
+      "durationSec: 8.",
+    ].join("\n"),
+  },
+  CUSTOM: {
+    allowImages: true,
+    guide: [
+      "CUSTOM — follow the user's own description of what they want.",
+      "You decide every shot's building blocks: whether each shot is 'video' or 'image', where there is dialogue, how many shots, the angles and durations.",
+      "Make sensible choices that serve the user's stated idea. durationSec: 4, 6 or 8 per shot.",
+    ].join("\n"),
+  },
 };
 
 const SHOT_LIST_SCHEMA = {
@@ -26,30 +82,38 @@ const SHOT_LIST_SCHEMA = {
       items: {
         type: "object" as const,
         properties: {
-          prompt: {
+          type: {
+            type: "string" as const,
+            enum: ["video", "image"],
+            description: "'video' = animated clip, 'image' = a still shown with a slow pan/zoom.",
+          },
+          cameraAngle: {
+            type: "string" as const,
+            description: "Camera framing, e.g. 'medium close-up, front-facing' or 'wide establishing shot'.",
+          },
+          promptText: {
             type: "string" as const,
             description:
-              "Visual Veo prompt for this shot: scene, camera, lighting, the character's appearance and action. If the character speaks, describe them talking naturally to camera/other person, but do NOT include the spoken words here.",
+              "Full visual prompt: scene, lighting, camera, and the character's appearance and action. Include the character's identity description so it stays consistent. Do NOT put spoken words here.",
           },
           dialogue: {
             type: "array" as const,
             items: { type: "string" as const },
             description:
-              "The exact words the character speaks in this shot, as a single-element array. Empty array if the character doesn't speak. Must be speakable within 8 seconds (max ~20 words). Match the language of the user's brief.",
+              "The exact words the character speaks in this shot, as a single-element array. Empty array if the character does not speak in this shot. Must be speakable within the duration (max ~20 words for 8s).",
           },
           dialogueLanguage: {
             type: "string" as const,
             enum: ["en", "hi"],
-            description:
-              "ISO 639-1 language of the dialogue: 'hi' for Hindi/Hinglish, 'en' for English.",
+            description: "'hi' for Hindi/Hinglish, 'en' for English.",
           },
           durationSec: {
             type: "integer" as const,
-            enum: [8],
-            description: "Shot duration in seconds (always 8 for now).",
+            enum: [4, 6, 8],
+            description: "Shot duration in seconds.",
           },
         },
-        required: ["prompt", "dialogue", "dialogueLanguage", "durationSec"],
+        required: ["type", "cameraAngle", "promptText", "dialogue", "dialogueLanguage", "durationSec"],
         additionalProperties: false,
       },
     },
@@ -59,6 +123,8 @@ const SHOT_LIST_SCHEMA = {
 };
 
 export type PlannedShot = {
+  type: "VIDEO" | "IMAGE";
+  cameraAngle: string;
   prompt: string;
   dialogue: string | null;
   dialogueLanguage: string | null;
@@ -66,10 +132,9 @@ export type PlannedShot = {
 };
 
 /**
- * Turns a project brief into a scene-by-scene shot list using Claude.
- * Visual prompt and spoken dialogue are separated: the dialogue is voiced
- * by ElevenLabs and lip-synced onto the clip, so it must not be baked
- * into the Veo prompt.
+ * The AI Creative Director: turns a brief into a building-blocks shot list
+ * for the chosen format. Every shot carries its own type/dialogue/angle/
+ * duration so the same render engine can produce any format.
  */
 export async function generateShotList(input: {
   brief: string;
@@ -78,39 +143,38 @@ export async function generateShotList(input: {
   characterName: string;
   characterDescription: string;
 }): Promise<PlannedShot[]> {
+  const directive = FORMAT_DIRECTIVES[input.format];
   const formatGuide =
     input.format === "CUSTOM" && input.customFormat
-      ? `Custom format described by the user: ${input.customFormat}`
-      : FORMAT_GUIDES[input.format];
+      ? `${directive.guide}\n\nThe user's custom request: ${input.customFormat}`
+      : directive.guide;
 
   const response = await anthropic.messages.create({
     model: "claude-opus-4-8",
     max_tokens: 4096,
     thinking: { type: "adaptive" },
     system: [
-      "You write scene-by-scene shot lists for AI-generated video ads.",
-      "Each shot is generated independently by a video model (Veo), so every shot prompt must fully describe the scene on its own — never reference other shots.",
-      "The main character appears in every shot. Describe them consistently using the provided description; the video model also receives reference photos of them.",
-      "Keep the visual prompt and the dialogue separate: the prompt describes what we SEE (including that the character is talking, their expression and energy), the dialogue field contains only what we HEAR.",
-      "Dialogue must fit comfortably in 8 seconds (max ~20 words). If the brief is in Hindi or Hinglish, write dialogue in Hindi using Devanagari script and set dialogueLanguage to 'hi'.",
+      "You are the Creative Director for an AI video ad studio.",
+      "You turn a brief into a scene-by-scene shot list. Every shot is an independent building block generated on its own, so each shot's promptText must fully describe its scene — never reference other shots.",
+      "IDENTITY RULE: the same character appears in every shot. Repeat the character's full identity description inside every shot's promptText so the face and look never drift (the video model also gets reference photos).",
+      "Keep the VISUAL promptText and the spoken DIALOGUE separate: promptText is what we SEE, dialogue is only what we HEAR.",
+      "If the brief is in Hindi or Hinglish, write dialogue in Hindi (Devanagari) and set dialogueLanguage to 'hi'.",
+      directive.allowImages
+        ? "This format MAY use 'image' shots."
+        : "This format uses ONLY 'video' shots — never set type to 'image'.",
     ].join("\n"),
     messages: [
       {
         role: "user",
         content: [
-          `Format: ${formatGuide}`,
-          `Main character: ${input.characterName} — ${input.characterDescription}`,
-          `What the ad is for (user's brief): ${input.brief}`,
-          "Create the shot list.",
+          `FORMAT DIRECTIVE:\n${formatGuide}`,
+          `MAIN CHARACTER: ${input.characterName} — ${input.characterDescription}`,
+          `BRIEF (what the ad is for): ${input.brief}`,
+          "Create the shot list now.",
         ].join("\n\n"),
       },
     ],
-    output_config: {
-      format: {
-        type: "json_schema",
-        schema: SHOT_LIST_SCHEMA,
-      },
-    },
+    output_config: { format: { type: "json_schema", schema: SHOT_LIST_SCHEMA } },
   });
 
   const block = response.content.find((b) => b.type === "text");
@@ -119,7 +183,9 @@ export async function generateShotList(input: {
   }
   const parsed = JSON.parse(block.text) as {
     shots: {
-      prompt: string;
+      type: "video" | "image";
+      cameraAngle: string;
+      promptText: string;
       dialogue: string[];
       dialogueLanguage: string;
       durationSec: number;
@@ -130,7 +196,9 @@ export async function generateShotList(input: {
   return parsed.shots.map((s) => {
     const dialogue = s.dialogue.join(" ").trim() || null;
     return {
-      prompt: s.prompt,
+      type: s.type === "image" ? "IMAGE" : "VIDEO",
+      cameraAngle: s.cameraAngle,
+      prompt: s.promptText,
       dialogue,
       dialogueLanguage: dialogue ? s.dialogueLanguage : null,
       durationSec: s.durationSec,

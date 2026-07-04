@@ -53,6 +53,8 @@ export async function POST(
         data: {
           projectId: project.id,
           orderIndex: i,
+          type: shot.type,
+          cameraAngle: shot.cameraAngle,
           prompt: shot.prompt,
           dialogue: shot.dialogue,
           dialogueLanguage: shot.dialogueLanguage,

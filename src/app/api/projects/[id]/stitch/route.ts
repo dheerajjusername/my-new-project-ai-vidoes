@@ -45,7 +45,11 @@ export async function POST(
 
   try {
     const finalVideoUrl = await stitchProjectVideo({
-      clipUrls: project.shots.map((s) => s.videoUrl!),
+      shots: project.shots.map((s) => ({
+        url: s.videoUrl!,
+        type: s.type,
+        durationSec: s.durationSec ?? (s.type === "IMAGE" ? 6 : 8),
+      })),
       voiceoverUrl: voiceoverSkipped ? null : project.voiceoverUrl,
     });
     const updated = await prisma.project.update({

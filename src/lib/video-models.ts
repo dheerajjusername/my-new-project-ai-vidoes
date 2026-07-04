@@ -15,7 +15,12 @@ export type VideoModel = {
   endpoint: string;
   // Builds the fal input for a given first-frame URL. `withAudio` is false
   // when we'll add our own dialogue audio + lip-sync afterwards.
-  buildInput: (frameUrl: string, prompt: string, withAudio: boolean) => FalInput;
+  buildInput: (
+    frameUrl: string,
+    prompt: string,
+    withAudio: boolean,
+    durationSec: number,
+  ) => FalInput;
 };
 
 export const VIDEO_MODELS: Record<VideoModelKey, VideoModel> = {
@@ -25,10 +30,11 @@ export const VIDEO_MODELS: Record<VideoModelKey, VideoModel> = {
     description: "Google Veo — reliable, 8s, natural motion. Good default.",
     credits: 25,
     endpoint: "fal-ai/veo3.1/lite/image-to-video",
-    buildInput: (frameUrl, prompt, withAudio) => ({
+    buildInput: (frameUrl, prompt, withAudio, durationSec) => ({
       prompt,
       image_url: frameUrl,
-      duration: "8s",
+      // Veo Lite image-to-video supports 4s / 6s / 8s.
+      duration: `${[4, 6, 8].includes(durationSec) ? durationSec : 8}s`,
       resolution: "720p",
       generate_audio: withAudio,
     }),
@@ -39,10 +45,11 @@ export const VIDEO_MODELS: Record<VideoModelKey, VideoModel> = {
     description: "Premium cinematic motion, 5s. Higher quality, costs more.",
     credits: 35,
     endpoint: "fal-ai/kling-video/v2.5-turbo/pro/image-to-video",
-    buildInput: (frameUrl, prompt) => ({
+    buildInput: (frameUrl, prompt, _withAudio, durationSec) => ({
       prompt,
       image_url: frameUrl,
-      duration: "5",
+      // Kling supports 5 or 10 seconds — map our 4/6/8 onto the nearest.
+      duration: durationSec >= 8 ? "10" : "5",
     }),
   },
 };

@@ -7,84 +7,125 @@ import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import { fal } from "@/lib/fal";
 
 const run = promisify(execFile);
-// Bundled FFmpeg binary — works on serverless hosts (Vercel) where no
-// system ffmpeg exists.
 const FFMPEG = ffmpegInstaller.path;
 
-// All clips are normalized to the same size/framerate before joining,
-// because Veo clips and lip-synced clips can differ slightly.
+// Every segment is normalized to identical params so we can concat losslessly.
 const WIDTH = 1280;
 const HEIGHT = 720;
 const FPS = 24;
 
+export type StitchShot = {
+  url: string;
+  type: "VIDEO" | "IMAGE";
+  durationSec: number;
+};
+
 /**
- * Joins a project's clips into one video with FFmpeg (runs locally — free),
- * optionally mixing the narration voiceover under the clip audio, then
- * uploads the result to fal storage and returns its URL.
+ * Builds the final video from a project's shots. VIDEO shots are normalized;
+ * IMAGE shots get a Ken Burns (slow zoom) motion. All segments are encoded
+ * to the same format, concatenated, and the narration voiceover (if any) is
+ * mixed under the audio. FFmpeg runs locally, so this step is free.
  */
 export async function stitchProjectVideo(input: {
-  clipUrls: string[];
+  shots: StitchShot[];
   voiceoverUrl?: string | null;
 }): Promise<string> {
-  if (input.clipUrls.length === 0) throw new Error("no clips to stitch");
+  if (input.shots.length === 0) throw new Error("no shots to stitch");
 
   const dir = await mkdtemp(path.join(tmpdir(), "stitch-"));
   try {
-    // 1. Download all clips (and the voiceover, if any).
-    const clipPaths: string[] = [];
-    for (const [i, url] of input.clipUrls.entries()) {
-      clipPaths.push(await download(url, path.join(dir, `clip-${i}.mp4`)));
+    const segPaths: string[] = [];
+
+    for (const [i, shot] of input.shots.entries()) {
+      const seg = path.join(dir, `seg-${i}.mp4`);
+      const dur = [4, 6, 8].includes(shot.durationSec) ? shot.durationSec : 6;
+
+      if (shot.type === "IMAGE") {
+        // Still → Ken Burns clip with a silent audio track.
+        const img = await download(shot.url, path.join(dir, `img-${i}`));
+        const frames = dur * FPS;
+        await run(FFMPEG, [
+          "-y", "-v", "error",
+          "-loop", "1", "-i", img,
+          "-f", "lavfi", "-t", String(dur), "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+          "-filter_complex",
+          `[0:v]scale=${WIDTH * 2}:${HEIGHT * 2}:force_original_aspect_ratio=increase,` +
+            `crop=${WIDTH * 2}:${HEIGHT * 2},` +
+            `zoompan=z='min(zoom+0.0012,1.18)':d=${frames}:s=${WIDTH}x${HEIGHT}:fps=${FPS},` +
+            `setsar=1[v]`,
+          "-map", "[v]", "-map", "1:a",
+          "-t", String(dur),
+          "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+          seg,
+        ]);
+      } else {
+        // Video clip → re-encode to the normalized format (add silent audio
+        // if the clip has none, so concat stays consistent).
+        const clip = await download(shot.url, path.join(dir, `clip-${i}.mp4`));
+        await run(FFMPEG, [
+          "-y", "-v", "error",
+          "-i", clip,
+          "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+          "-filter_complex",
+          `[0:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
+            `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},setsar=1[v]`,
+          "-map", "[v]",
+          "-map", "0:a?",  // clip audio if present
+          "-map", "1:a",   // fallback silent
+          "-shortest",
+          "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+          seg,
+        ]).catch(async () => {
+          // Some clips have no audio stream — retry without the 0:a map.
+          await run(FFMPEG, [
+            "-y", "-v", "error",
+            "-i", clip,
+            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+            "-filter_complex",
+            `[0:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
+              `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},setsar=1[v]`,
+            "-map", "[v]", "-map", "1:a", "-shortest",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+            seg,
+          ]);
+        });
+      }
+      segPaths.push(seg);
     }
-    const voiceoverPath = input.voiceoverUrl
-      ? await download(input.voiceoverUrl, path.join(dir, "voiceover.mp3"))
-      : null;
 
-    // 2. Build the FFmpeg filter graph: normalize every clip, concat them,
-    //    then (optionally) mix the voiceover under the combined audio.
-    const args: string[] = ["-y", "-v", "error"];
-    for (const p of clipPaths) args.push("-i", p);
-    if (voiceoverPath) args.push("-i", voiceoverPath);
+    // Concatenate all normalized segments losslessly.
+    const listFile = path.join(dir, "list.txt");
+    await writeFile(listFile, segPaths.map((p) => `file '${p}'`).join("\n"));
+    const combined = path.join(dir, "combined.mp4");
+    await run(FFMPEG, [
+      "-y", "-v", "error",
+      "-f", "concat", "-safe", "0", "-i", listFile,
+      "-c", "copy", "-movflags", "+faststart",
+      combined,
+    ]);
 
-    const n = clipPaths.length;
-    const filters: string[] = [];
-    for (let i = 0; i < n; i++) {
-      filters.push(
-        `[${i}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
-          `pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},setsar=1[v${i}]`,
-        `[${i}:a]aresample=48000[a${i}]`,
-      );
-    }
-    const pairs = Array.from({ length: n }, (_, i) => `[v${i}][a${i}]`).join("");
-    filters.push(`${pairs}concat=n=${n}:v=1:a=1[v][ca]`);
+    let finalPath = combined;
 
-    let audioLabel = "ca";
-    if (voiceoverPath) {
-      // Clip audio quieter, narration on top.
-      filters.push(
-        `[ca]volume=0.5[bg]`,
-        `[${n}:a]volume=1.3[vo]`,
-        `[bg][vo]amix=inputs=2:duration=first:normalize=0[mix]`,
-      );
-      audioLabel = "mix";
+    // Mix the narration voiceover under the combined audio, if provided.
+    if (input.voiceoverUrl) {
+      const vo = await download(input.voiceoverUrl, path.join(dir, "voiceover.mp3"));
+      const mixed = path.join(dir, "final.mp4");
+      await run(FFMPEG, [
+        "-y", "-v", "error",
+        "-i", combined, "-i", vo,
+        "-filter_complex",
+        "[0:a]volume=0.5[bg];[1:a]volume=1.3[vo];[bg][vo]amix=inputs=2:duration=first:normalize=0[a]",
+        "-map", "0:v", "-map", "[a]",
+        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+        mixed,
+      ]);
+      finalPath = mixed;
     }
 
-    const outPath = path.join(dir, "final.mp4");
-    args.push(
-      "-filter_complex", filters.join(";"),
-      "-map", "[v]",
-      "-map", `[${audioLabel}]`,
-      "-c:v", "libx264",
-      "-preset", "fast",
-      "-crf", "20",
-      "-c:a", "aac",
-      "-b:a", "192k",
-      "-movflags", "+faststart",
-      outPath,
-    );
-    await run(FFMPEG, args);
-
-    // 3. Upload the final video to fal storage so it has a public URL.
-    const buffer = await readFile(outPath);
+    const buffer = await readFile(finalPath);
     const file = new File([buffer], "final.mp4", { type: "video/mp4" });
     return await fal.storage.upload(file);
   } finally {

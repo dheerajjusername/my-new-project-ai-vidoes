@@ -6,6 +6,7 @@ export const CREDIT_COSTS = {
   character: 25, // 5 reference images (Nano Banana)
   shotList: 3, // Claude scene planning
   shotVideo: 25, // first frame + Veo clip + voice + lipsync
+  shotImage: 8, // a single still scene (Nano Banana)
   voiceover: 3, // ElevenLabs narration
   stitch: 0, // FFmpeg — runs locally, free
 } as const;
