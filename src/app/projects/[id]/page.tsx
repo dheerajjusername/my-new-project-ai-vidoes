@@ -41,6 +41,8 @@ export default function ProjectDetailPage({
   const [voLanguage, setVoLanguage] = useState("hi");
   const [voGenerating, setVoGenerating] = useState(false);
   const [stitching, setStitching] = useState(false);
+  const [generatingAll, setGeneratingAll] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -89,6 +91,54 @@ export default function ProjectDetailPage({
     }
   }
 
+  // Generate every shot that isn't done yet, one after another.
+  async function generateAllShots() {
+    if (!project) return;
+    setGeneratingAll(true);
+    setError(null);
+    const pending = project.shots.filter((s) => s.status !== "COMPLETED");
+    for (const shot of pending) {
+      setGeneratingShotId(shot.id);
+      try {
+        const res = await fetch(`/api/shots/${shot.id}/generate`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "A shot failed — stopped here.");
+          await load();
+          break;
+        }
+      } catch {
+        setError("Could not reach the server.");
+        break;
+      }
+      await load();
+    }
+    setGeneratingShotId(null);
+    setGeneratingAll(false);
+  }
+
+  // Force-download a remote file (fal.media is cross-origin, so a plain
+  // <a download> wouldn't work — fetch the blob and save it).
+  async function downloadFile(url: string, filename: string) {
+    setDownloading(true);
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setError("Download failed — try right-clicking the video and 'Save as'.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   async function generateVoiceover() {
     setVoGenerating(true);
     setError(null);
@@ -129,9 +179,11 @@ export default function ProjectDetailPage({
     );
   }
 
+  const completedCount = project.shots.filter((s) => s.status === "COMPLETED").length;
   const allShotsDone =
-    project.shots.length > 0 &&
-    project.shots.every((s) => s.status === "COMPLETED");
+    project.shots.length > 0 && completedCount === project.shots.length;
+  const anyPending = project.shots.some((s) => s.status !== "COMPLETED");
+  const busy = generatingAll || generatingShotId !== null || planning;
 
   return (
     <div className="flex-1 text-neutral-100">
@@ -189,33 +241,74 @@ export default function ProjectDetailPage({
             </p>
           )}
           {project.finalVideoUrl && (
-            <video
-              src={project.finalVideoUrl}
-              controls
-              className="mt-4 w-full max-w-2xl rounded-lg border border-white/10"
-            />
+            <div className="mt-4">
+              <video
+                src={project.finalVideoUrl}
+                controls
+                className="w-full max-w-2xl rounded-lg border border-white/10"
+              />
+              <button
+                onClick={() =>
+                  downloadFile(project.finalVideoUrl!, `${project.title || "ad-champ"}.mp4`)
+                }
+                disabled={downloading}
+                className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
+              >
+                {downloading ? "Downloading…" : "⬇ Download final video"}
+              </button>
+            </div>
           )}
         </div>
 
         <div className="mt-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">Shots</h2>
-            <button
-              onClick={generateShotList}
-              disabled={planning || project.shots.some((s) => s.status !== "PENDING")}
-              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
-            >
-              {planning
-                ? "Claude is planning the scenes…"
-                : project.shots.length > 0
-                  ? "Regenerate shot list"
-                  : "Generate shot list with AI"}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-white">
+              Shots
+              {project.shots.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-neutral-500">
+                  {completedCount}/{project.shots.length} done
+                </span>
+              )}
+            </h2>
+            <div className="flex gap-2">
+              {project.shots.length > 0 && anyPending && (
+                <button
+                  onClick={generateAllShots}
+                  disabled={busy}
+                  className="rounded-full bg-gradient-to-r from-violet-500 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {generatingAll
+                    ? "Generating all shots…"
+                    : `Generate all shots (${25 * project.shots.filter((s) => s.status !== "COMPLETED").length} credits)`}
+                </button>
+              )}
+              <button
+                onClick={generateShotList}
+                disabled={busy || project.shots.some((s) => s.status !== "PENDING")}
+                className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+              >
+                {planning
+                  ? "Planning scenes…"
+                  : project.shots.length > 0
+                    ? "Regenerate shot list"
+                    : "Generate shot list with AI"}
+              </button>
+            </div>
           </div>
+
+          {/* Progress bar */}
+          {project.shots.length > 0 && (
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all"
+                style={{ width: `${(completedCount / project.shots.length) * 100}%` }}
+              />
+            </div>
+          )}
 
           {project.shots.length === 0 && !planning && (
             <p className="mt-4 text-sm text-neutral-500">
-              No shots yet. Click the button above and Claude will turn your
+              No shots yet. Click the button above and AI will turn your
               brief into a scene-by-scene plan.
             </p>
           )}
@@ -224,8 +317,7 @@ export default function ProjectDetailPage({
           <div className="mt-8 glass rounded-2xl p-5">
             <h3 className="font-medium text-white">Voiceover (ElevenLabs)</h3>
             <p className="mt-1 text-xs text-neutral-500">
-              Optional narration for the final video. Cost: roughly $0.10 per
-              1000 characters — keep it short.
+              Optional narration for the final video (3 credits). Keep it short.
             </p>
             {project.shots.some((s) => s.dialogue) && (
               <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
@@ -241,7 +333,7 @@ export default function ProjectDetailPage({
               rows={3}
               maxLength={2500}
               placeholder="e.g. Garam Adrak — ghar wali chai, sirf do minute mein."
-              className="mt-3 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              className="mt-3 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
             />
             <div className="mt-3 flex items-center gap-4">
               <select
@@ -295,7 +387,7 @@ export default function ProjectDetailPage({
                       </p>
                     )}
                     {shot.lastError && (
-                      <p className="mt-2 text-xs text-red-600">{shot.lastError}</p>
+                      <p className="mt-2 text-xs text-red-400">{shot.lastError}</p>
                     )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
@@ -316,24 +408,35 @@ export default function ProjectDetailPage({
                     {shot.status !== "GENERATING" && (
                       <button
                         onClick={() => generateShot(shot.id)}
-                        disabled={generatingShotId !== null}
+                        disabled={busy}
                         className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-medium text-neutral-200 hover:bg-white/10 disabled:opacity-50"
                       >
                         {generatingShotId === shot.id
                           ? "Generating (~1-2 min)…"
                           : shot.status === "COMPLETED"
-                            ? "Regenerate (~$0.40)"
-                            : "Generate video (~$0.40)"}
+                            ? "Regenerate (25 credits)"
+                            : "Generate video (25 credits)"}
                       </button>
                     )}
                   </div>
                 </div>
                 {shot.videoUrl && (
-                  <video
-                    src={shot.videoUrl}
-                    controls
-                    className="mt-4 w-full max-w-xl rounded-lg border border-white/10"
-                  />
+                  <div className="mt-4">
+                    <video
+                      src={shot.videoUrl}
+                      controls
+                      className="w-full max-w-xl rounded-lg border border-white/10"
+                    />
+                    <button
+                      onClick={() =>
+                        downloadFile(shot.videoUrl!, `shot-${shot.orderIndex + 1}.mp4`)
+                      }
+                      disabled={downloading}
+                      className="mt-2 text-xs font-medium text-neutral-400 hover:text-white disabled:opacity-50"
+                    >
+                      ⬇ Download this clip
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
