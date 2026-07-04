@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AdCharacter — AI Video Ads Platform",
+  title: "Ad Champ — AI Video Ads Platform",
   description:
     "Create a consistent AI character once, then generate unlimited video ads with it — powered by Veo 3.1, Nano Banana 2, Claude and ElevenLabs.",
 };

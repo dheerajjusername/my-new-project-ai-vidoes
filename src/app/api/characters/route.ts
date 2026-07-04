@@ -1,3 +1,6 @@
+// Allow up to 5 minutes on Vercel — AI generation is slow.
+export const maxDuration = 300;
+
 import { prisma } from "@/lib/prisma";
 import { generateCharacterReferenceImages } from "@/lib/character-images";
 import { getDemoUser } from "@/lib/demo-user";

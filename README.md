@@ -1,4 +1,4 @@
-# AdCharacter — AI Video Ads Platform
+# Ad Champ — AI Video Ads Platform
 
 Create an AI character once, reuse it across unlimited AI-generated video ads.
 
@@ -24,4 +24,15 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 Copy `.env.example` to `.env` and fill in your API keys before running anything
-that talks to Gemini, Claude, ElevenLabs, or the database.
+that talks to fal.ai, Claude, or the database.
+
+## Deploying to Vercel
+
+1. Import this GitHub repo at [vercel.com/new](https://vercel.com/new).
+2. In the project settings, add these Environment Variables:
+   - `DATABASE_URL` — Neon Postgres connection string
+   - `FAL_KEY` — fal.ai API key
+   - `ANTHROPIC_API_KEY` — Claude API key
+3. Deploy. FFmpeg ships with the app via `@ffmpeg-installer/ffmpeg`, and the
+   heavy API routes set `maxDuration = 300` (requires Fluid Compute, which is
+   on by default for new Vercel projects).

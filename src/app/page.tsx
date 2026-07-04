@@ -54,7 +54,7 @@ export default function Home() {
       {/* Nav */}
       <header className="border-b border-neutral-200">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <span className="text-lg font-semibold tracking-tight">AdCharacter</span>
+          <span className="text-lg font-semibold tracking-tight">Ad Champ</span>
           <nav className="hidden gap-8 text-sm text-neutral-600 sm:flex">
             <a href="#how-it-works" className="hover:text-neutral-900">
               How it works
@@ -141,7 +141,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-neutral-200">
         <div className="mx-auto max-w-6xl px-6 py-10 text-sm text-neutral-500">
-          AdCharacter — AI video ads platform.
+          Ad Champ — AI video ads platform.
         </div>
       </footer>
     </div>

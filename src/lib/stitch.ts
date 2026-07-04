@@ -3,9 +3,13 @@ import { promisify } from "node:util";
 import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import { fal } from "@/lib/fal";
 
 const run = promisify(execFile);
+// Bundled FFmpeg binary — works on serverless hosts (Vercel) where no
+// system ffmpeg exists.
+const FFMPEG = ffmpegInstaller.path;
 
 // All clips are normalized to the same size/framerate before joining,
 // because Veo clips and lip-synced clips can differ slightly.
@@ -77,7 +81,7 @@ export async function stitchProjectVideo(input: {
       "-movflags", "+faststart",
       outPath,
     );
-    await run("ffmpeg", args);
+    await run(FFMPEG, args);
 
     // 3. Upload the final video to fal storage so it has a public URL.
     const buffer = await readFile(outPath);

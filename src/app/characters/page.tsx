@@ -63,7 +63,7 @@ export default function CharactersPage() {
       <header className="border-b border-neutral-200">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <a href="/" className="text-lg font-semibold tracking-tight">
-            AdCharacter
+            Ad Champ
           </a>
           <nav className="text-sm text-neutral-600">
             <span className="font-medium text-neutral-900">Characters</span>

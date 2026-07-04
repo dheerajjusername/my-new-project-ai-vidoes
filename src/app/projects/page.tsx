@@ -83,7 +83,7 @@ export default function ProjectsPage() {
       <header className="border-b border-neutral-200">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <a href="/" className="text-lg font-semibold tracking-tight">
-            AdCharacter
+            Ad Champ
           </a>
           <nav className="flex gap-6 text-sm text-neutral-600">
             <a href="/characters" className="hover:text-neutral-900">
