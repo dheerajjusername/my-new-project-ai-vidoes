@@ -61,9 +61,9 @@ export async function POST(
           projectId: project.id,
           orderIndex: i,
           type: "IMAGE",
-          cameraAngle: img.cameraAngle,
-          prompt: img.prompt,
-          narrationText: img.narrationText || null,
+          cameraAngle: normalizeScript(img.cameraAngle),
+          prompt: normalizeScript(img.prompt),
+          narrationText: img.narrationText ? normalizeScript(img.narrationText) : null,
           durationSec: 3,
         },
       });

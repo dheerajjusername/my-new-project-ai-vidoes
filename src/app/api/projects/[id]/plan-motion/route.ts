@@ -110,9 +110,9 @@ export async function POST(
           projectId: project.id,
           orderIndex: i,
           type: "VIDEO",
-          cameraAngle: clip.cameraAngle,
-          prompt: clip.prompt,
-          narrationText: clip.narrationText || null,
+          cameraAngle: normalizeScript(clip.cameraAngle),
+          prompt: normalizeScript(clip.prompt),
+          narrationText: clip.narrationText ? normalizeScript(clip.narrationText) : null,
           durationSec: veoDuration(targets[i]),
         },
       });
