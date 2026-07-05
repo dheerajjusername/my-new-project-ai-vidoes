@@ -24,10 +24,7 @@ export function SiteHeader({ active }: { active?: "characters" | "projects" }) {
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-black/50 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-        <a href="/" className="flex items-center gap-2" aria-label="Ad Champ home">
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 text-sm font-bold text-white shadow-lg shadow-violet-500/25">
-            A
-          </span>
+        <a href="/" className="flex items-center" aria-label="Ad Champ home">
           <Logo />
         </a>
         <nav className="flex items-center gap-1 sm:gap-2">

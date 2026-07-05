@@ -48,10 +48,7 @@ export default function Home() {
       {/* Nav */}
       <header className="sticky top-0 z-20 border-b border-white/10 bg-black/40 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <a href="/" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 text-sm font-bold text-white shadow-lg shadow-violet-500/25">
-              A
-            </span>
+          <a href="/" className="flex items-center">
             <Logo />
           </a>
           <nav className="hidden gap-7 text-sm text-neutral-400 sm:flex">
@@ -216,11 +213,8 @@ export default function Home() {
       <footer className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-10 text-sm text-neutral-500 sm:flex-row">
           <a href="/" className="flex items-center gap-2">
-            <span className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 text-xs font-bold text-white">
-              A
-            </span>
             <Logo size="sm" />
-            <span className="ml-1 text-neutral-500">— AI video ads platform</span>
+            <span className="text-neutral-500">— AI video ads platform</span>
           </a>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             <a href="/characters" className="hover:text-white">Characters</a>

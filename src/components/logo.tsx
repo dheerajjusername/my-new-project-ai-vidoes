@@ -1,5 +1,5 @@
-// Ad Champ wordmark, recreated in code: "Ad" in the brand gradient
-// (violet → magenta → orange) and "Champ" in white for the dark UI.
+// Ad Champ logo — the user's actual wordmark (public/logo-wordmark.png). It's
+// dark-on-white, so on the dark UI it sits inside a white rounded pill.
 export function Logo({
   className = "",
   size = "md",
@@ -7,14 +7,14 @@ export function Logo({
   className?: string;
   size?: "sm" | "md" | "lg";
 }) {
-  const text =
-    size === "lg" ? "text-2xl" : size === "sm" ? "text-base" : "text-lg";
+  const h = size === "lg" ? "h-7" : size === "sm" ? "h-4" : "h-5";
+  const pad = size === "lg" ? "px-2.5 py-1.5" : "px-2 py-1";
   return (
     <span
-      className={`font-display font-bold leading-none tracking-tight ${text} ${className}`}
+      className={`inline-flex items-center rounded-xl bg-white shadow-sm ${pad} ${className}`}
     >
-      <span className="brand-text">Ad</span>
-      <span className="text-white">Champ</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo-wordmark.png" alt="Ad Champ" className={`${h} w-auto`} />
     </span>
   );
 }
