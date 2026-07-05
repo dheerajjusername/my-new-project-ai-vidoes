@@ -229,16 +229,17 @@ export default function ProjectsPage() {
     <div className="flex-1 text-neutral-100">
       <SiteHeader active="projects" />
 
-      <main className="mx-auto max-w-6xl px-6 py-12">
-        <h1 className="text-3xl font-semibold tracking-tight">Your projects</h1>
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your projects</h1>
         <p className="mt-2 text-neutral-400">
           A project turns your brief into a scene-by-scene video ad starring one
           of your characters.
         </p>
 
+        <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <form
           onSubmit={handleCreate}
-          className="mt-8 max-w-2xl glass rounded-2xl p-6 sm:p-8"
+          className="glass rounded-2xl p-5 sm:p-8"
         >
           <h2 className="font-display text-xl font-semibold text-white">Create a new project</h2>
           <p className="mt-1 text-sm text-neutral-400">
@@ -600,6 +601,36 @@ export default function ProjectsPage() {
           </button>
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </form>
+
+        {/* Helper sidebar — fills the space on desktop, hidden on mobile */}
+        <aside className="hidden lg:block">
+          <div className="glass sticky top-24 rounded-2xl p-5">
+            <h3 className="font-display text-sm font-semibold text-white">
+              How a project works
+            </h3>
+            <ol className="mt-4 space-y-3 text-sm text-neutral-400">
+              {[
+                "Pick or create your character",
+                "Choose a format, shape & art style",
+                "Write a short brief about your ad",
+                "Generate shots live — regenerate any you don't like",
+                "Add a voiceover, then stitch the final video",
+              ].map((t, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-violet-500/15 text-[11px] font-semibold text-violet-300">
+                    {i + 1}
+                  </span>
+                  {t}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-neutral-400">
+              💡 <b className="text-neutral-200">Tip:</b> Static Storytelling is the
+              cheapest way to test an idea. Use Motion or Talking for premium ads.
+            </div>
+          </div>
+        </aside>
+        </div>
 
         <div className="mt-12 space-y-4">
           {projects.length === 0 && (

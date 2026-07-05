@@ -26,26 +26,28 @@ export function AuthNav() {
     return (
       <a
         href="/login"
-        className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
+        className="btn-primary px-4 py-2 text-sm"
       >
         Log in
       </a>
     );
   }
   return (
-    <div className="flex items-center gap-3 text-sm">
+    <div className="flex items-center gap-1.5 text-sm sm:gap-2">
       <a
         href="/credits"
         title="Your credits"
-        className="rounded-full border border-violet-400/40 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-200 hover:bg-violet-500/20"
+        className="rounded-full border border-violet-400/40 bg-violet-500/10 px-2.5 py-1.5 text-xs font-medium text-violet-200 hover:bg-violet-500/20"
       >
-        {credits ?? "…"} credits
+        {credits ?? "…"}<span className="hidden sm:inline"> credits</span>
       </a>
       <button
         onClick={logout}
-        className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-white/10"
+        title="Log out"
+        className="rounded-full border border-white/20 px-2.5 py-1.5 text-xs font-medium text-neutral-300 hover:bg-white/10"
       >
-        Log out
+        <span className="hidden sm:inline">Log out</span>
+        <span className="sm:hidden">↪</span>
       </button>
     </div>
   );

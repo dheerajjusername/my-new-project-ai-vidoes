@@ -1,4 +1,6 @@
 import { AuthNav } from "@/components/auth-nav";
+import { Logo } from "@/components/logo";
+import { FounderAvatar } from "@/components/founder-avatar";
 
 const FORMATS = [
   { icon: "🎤", name: "Talking", description: "Characters speak on screen with real lip-sync — one scene, full dialogue." },
@@ -46,16 +48,16 @@ export default function Home() {
       {/* Nav */}
       <header className="sticky top-0 z-20 border-b border-white/10 bg-black/40 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <span className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-sm font-bold text-white shadow-lg shadow-violet-500/25">
+          <a href="/" className="flex items-center gap-2">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 text-sm font-bold text-white shadow-lg shadow-violet-500/25">
               A
             </span>
-            Ad Champ
-          </span>
+            <Logo />
+          </a>
           <nav className="hidden gap-7 text-sm text-neutral-400 sm:flex">
             <a href="#how-it-works" className="hover:text-white">How it works</a>
             <a href="#formats" className="hover:text-white">Formats</a>
-            <a href="#tech" className="hover:text-white">Models</a>
+            <a href="#founder" className="hover:text-white">Founder</a>
           </nav>
           <AuthNav />
         </div>
@@ -179,21 +181,64 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Founder */}
+      <section id="founder" className="border-t border-white/10">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <p className="text-center text-xs font-semibold uppercase tracking-widest text-violet-300">
+            Meet the founder
+          </p>
+          <div className="mx-auto mt-6 flex max-w-lg flex-col items-center gap-5 text-center">
+            <FounderAvatar size={88} />
+            <div>
+              <h3 className="font-display text-xl font-semibold text-white">Dheeraj Yadav</h3>
+              <p className="mt-1 text-sm text-neutral-400">Founder &amp; Builder, Ad Champ</p>
+            </div>
+            <p className="max-w-md text-sm text-neutral-400">
+              Building Ad Champ so anyone can create studio-quality AI video ads —
+              no camera, no crew, no editing skills. Just your idea.
+            </p>
+            <a
+              href="https://www.linkedin.com/in/dheerajjyadav"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+            >
+              <span className="grid h-5 w-5 place-items-center rounded bg-[#0a66c2] text-[11px] font-bold text-white">
+                in
+              </span>
+              Connect on LinkedIn
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-neutral-500 sm:flex-row">
-          <span className="flex items-center gap-2">
-            <span className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 text-xs font-bold text-white">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-10 text-sm text-neutral-500 sm:flex-row">
+          <a href="/" className="flex items-center gap-2">
+            <span className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 text-xs font-bold text-white">
               A
             </span>
-            Ad Champ — AI video ads platform
-          </span>
-          <div className="flex gap-6">
+            <Logo size="sm" />
+            <span className="ml-1 text-neutral-500">— AI video ads platform</span>
+          </a>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             <a href="/characters" className="hover:text-white">Characters</a>
             <a href="/projects" className="hover:text-white">Projects</a>
             <a href="/credits" className="hover:text-white">Credits</a>
+            <a
+              href="https://www.linkedin.com/in/dheerajjyadav"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white"
+            >
+              LinkedIn
+            </a>
           </div>
         </div>
+        <p className="pb-8 text-center text-xs text-neutral-600">
+          © {new Date().getFullYear()} Ad Champ · Built by Dheeraj Yadav
+        </p>
       </footer>
     </div>
   );

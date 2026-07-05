@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Logo } from "@/components/logo";
 
 const PERKS = [
   "One consistent AI character, unlimited ads",
@@ -52,11 +53,11 @@ export default function LoginPage() {
             className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full blur-3xl"
             style={{ background: "radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%)" }}
           />
-          <a href="/" className="relative flex items-center gap-2.5 text-xl font-semibold tracking-tight">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 text-base font-bold text-white shadow-lg shadow-violet-500/30">
+          <a href="/" className="relative flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 text-base font-bold text-white shadow-lg shadow-violet-500/30">
               A
             </span>
-            Ad Champ
+            <Logo size="lg" />
           </a>
           <div className="relative">
             <h2 className="font-display text-3xl font-semibold leading-tight">
@@ -82,11 +83,11 @@ export default function LoginPage() {
 
         {/* Form panel */}
         <div className="glass p-8 sm:p-10">
-          <a href="/" className="mb-6 flex items-center gap-2 text-lg font-semibold tracking-tight md:hidden">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 text-base font-bold text-white">
+          <a href="/" className="mb-6 flex items-center gap-2 md:hidden">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-violet-500 via-fuchsia-500 to-orange-400 text-base font-bold text-white">
               A
             </span>
-            Ad Champ
+            <Logo />
           </a>
 
           <h1 className="font-display text-2xl font-semibold">
