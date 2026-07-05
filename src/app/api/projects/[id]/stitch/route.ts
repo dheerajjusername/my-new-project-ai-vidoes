@@ -3,7 +3,7 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
-import { stitchProjectVideo, stitchStaticVideo, type WordTime } from "@/lib/stitch";
+import { stitchProjectVideo, stitchStaticVideo, stitchMotionVideo, type WordTime } from "@/lib/stitch";
 
 // Parse the saved voiceover word timestamps (JSON) back into an array.
 function parseWords(raw: string | null): WordTime[] | null {
@@ -47,7 +47,11 @@ export async function POST(
   const isStatic =
     project.format === "STATIC_STORYTELLING" &&
     project.shots.every((s) => s.type === "IMAGE");
-  if (isStatic && !project.voiceoverUrl) {
+  // Motion storytelling times VIDEO clips to the narration too.
+  const isMotion =
+    project.format === "MOTION_STORYTELLING" &&
+    project.shots.every((s) => s.type === "VIDEO");
+  if ((isStatic || isMotion) && !project.voiceoverUrl) {
     return Response.json(
       { error: "Generate the voiceover first — it sets the video's length." },
       { status: 400 },
@@ -69,6 +73,17 @@ export async function POST(
     const finalVideoUrl = isStatic
       ? await stitchStaticVideo({
           images: project.shots.map((s) => ({
+            url: s.videoUrl!,
+            narrationText: s.narrationText,
+          })),
+          voiceoverUrl: project.voiceoverUrl!,
+          aspectRatio: project.aspectRatio,
+          transition: project.transition,
+          voiceoverWords: parseWords(project.voiceoverWords),
+        })
+      : isMotion
+      ? await stitchMotionVideo({
+          clips: project.shots.map((s) => ({
             url: s.videoUrl!,
             narrationText: s.narrationText,
           })),

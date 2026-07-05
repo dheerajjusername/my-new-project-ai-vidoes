@@ -264,6 +264,22 @@ export default function ProjectDetailPage({
     }
   }
 
+  // Plan the video clips for a motion story (AI decides where to cut).
+  async function planMotionClips() {
+    setPlanningStatic(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/plan-motion`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setPlanningStatic(false);
+    }
+  }
+
   // Delete a single image so it can be re-planned or regenerated.
   async function deleteShot(shotId: string) {
     setDeletingShotId(shotId);
@@ -314,6 +330,9 @@ export default function ProjectDetailPage({
   // Formats made only of image shots don't need a video model.
   const anyVideoShot = project.shots.some((s) => s.type === "VIDEO");
   const isStatic = project.format === "STATIC_STORYTELLING";
+  const isMotion = project.format === "MOTION_STORYTELLING";
+  const isGuided = isStatic || isMotion;
+  const unit = isMotion ? "clips" : "images"; // wording for the guided flow
   const styleLabel =
     IMAGE_STYLES.find((s) => s.id === project.imageStyle)?.label ??
     project.imageStyle;
@@ -351,22 +370,21 @@ export default function ProjectDetailPage({
           </p>
         )}
 
-        {/* Static Storytelling — guided flow */}
-        {isStatic && (
+        {/* Static / Motion Storytelling — guided flow */}
+        {isGuided && (
           <div className="mt-8 glass rounded-2xl border border-violet-400/30 p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">
-                Static Storytelling
+                {isMotion ? "Motion Storytelling" : "Static Storytelling"}
               </h2>
               <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-neutral-300">
                 {project.aspectRatio === "9:16" ? "9:16 Portrait" : "16:9 Landscape"}
               </span>
             </div>
             <p className="mt-1 text-xs text-neutral-500">
-              Steps: (1) narration likho → (2) voice choose karke voiceover
-              banao → (3) images plan karo (har ~6 word = 1 image, 3 sec each) →
-              (4) images generate/regenerate/delete → (5) final video. Video ki
-              length voiceover ke barabar hi hogi.
+              {isMotion
+                ? "Steps: (1) narration likho → (2) voice choose karke voiceover banao → (3) clips plan karo (AI khud decide karega kahan clip badle, har clip 3-7 sec) → (4) clips generate/regenerate/delete → (5) final video. Har clip apni line par chalegi, video ki length voiceover ke barabar."
+                : "Steps: (1) narration likho → (2) voice choose karke voiceover banao → (3) images plan karo (har ~6 word = 1 image, 3 sec each) → (4) images generate/regenerate/delete → (5) final video. Video ki length voiceover ke barabar hi hogi."}
             </p>
 
             {/* Step 1 — narration */}
@@ -392,7 +410,9 @@ export default function ProjectDetailPage({
                 className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
               />
               <p className="mt-1 text-xs text-neutral-500">
-                {narrationWords} words → ~{plannedImageCount} images · {narration.length}/2500
+                {isMotion
+                  ? `${narrationWords} words · AI clips decide karega · ${narration.length}/2500`
+                  : `${narrationWords} words → ~${plannedImageCount} images · ${narration.length}/2500`}
               </p>
             </div>
 
@@ -518,18 +538,20 @@ export default function ProjectDetailPage({
               )}
             </div>
 
-            {/* Step 3 — plan images */}
+            {/* Step 3 — plan images / clips */}
             <div className="mt-5">
               <label className="text-sm font-medium text-white">
-                Step 3 · Plan images
+                Step 3 · Plan {unit}
               </label>
               <p className="mt-1 text-xs text-neutral-500">
                 {project.narrationScript
-                  ? `Voiceover ke hisaab se ~${plannedImageCount} images banenge.`
-                  : "Pehle voiceover banao (Step 2), phir images plan honge."}
+                  ? isMotion
+                    ? "AI narration padhkar khud decide karega kahan clip badle (1 action = 1 clip)."
+                    : `Voiceover ke hisaab se ~${plannedImageCount} images banenge.`
+                  : `Pehle voiceover banao (Step 2), phir ${unit} plan honge.`}
               </p>
               <button
-                onClick={planStaticImages}
+                onClick={isMotion ? planMotionClips : planStaticImages}
                 disabled={
                   planningStatic ||
                   !project.voiceoverUrl ||
@@ -538,14 +560,14 @@ export default function ProjectDetailPage({
                 className="mt-2 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
               >
                 {planningStatic
-                  ? "Planning images…"
+                  ? `Planning ${unit}…`
                   : hasImages
-                    ? "Re-plan images (3 credits)"
-                    : "Plan images with AI (3 credits)"}
+                    ? `Re-plan ${unit} (3 credits)`
+                    : `Plan ${unit} with AI (3 credits)`}
               </button>
               {hasImages && project.shots.some((s) => s.status !== "PENDING") && (
                 <p className="mt-2 text-xs text-amber-400">
-                  Re-plan karne ke liye pehle generated images delete karo (neeche).
+                  Re-plan karne ke liye pehle generated {unit} delete karo (neeche).
                 </p>
               )}
             </div>
@@ -622,7 +644,7 @@ export default function ProjectDetailPage({
                     : `Generate all shots (${pendingCost} credits)`}
                 </button>
               )}
-              {!isStatic && (
+              {!isGuided && (
                 <button
                   onClick={generateShotList}
                   disabled={busy || project.shots.some((s) => s.status !== "PENDING")}
@@ -675,14 +697,14 @@ export default function ProjectDetailPage({
 
           {project.shots.length === 0 && !planning && (
             <p className="mt-4 text-sm text-neutral-500">
-              {isStatic
-                ? "No images yet. Complete Steps 1–3 above (narration → voiceover → plan images)."
+              {isGuided
+                ? `No ${unit} yet. Complete Steps 1–3 above (narration → voiceover → plan ${unit}).`
                 : "No shots yet. Click the button above and AI will turn your brief into a scene-by-scene plan."}
             </p>
           )}
 
-          {/* Voiceover — generic formats only (Static uses its own Step 2) */}
-          {!isStatic && (
+          {/* Voiceover — generic formats only (Static/Motion use their own Step 2) */}
+          {!isGuided && (
           <div className="mt-8 glass rounded-2xl p-5">
             <h3 className="font-medium text-white">Voiceover (ElevenLabs)</h3>
             <p className="mt-1 text-xs text-neutral-500">
@@ -793,13 +815,15 @@ export default function ProjectDetailPage({
                           : `${shot.status === "COMPLETED" ? "Regenerate" : shot.type === "IMAGE" ? "Generate image" : "Generate video"} (${shot.type === "IMAGE" ? 8 : modelCredits} credits)`}
                       </button>
                     )}
-                    {isStatic && shot.status !== "GENERATING" && (
+                    {isGuided && shot.status !== "GENERATING" && (
                       <button
                         onClick={() => deleteShot(shot.id)}
                         disabled={busy || deletingShotId === shot.id}
                         className="rounded-full border border-white/15 px-4 py-1.5 text-xs font-medium text-neutral-400 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
                       >
-                        {deletingShotId === shot.id ? "Deleting…" : "Delete image"}
+                        {deletingShotId === shot.id
+                          ? "Deleting…"
+                          : isMotion ? "Delete clip" : "Delete image"}
                       </button>
                     )}
                   </div>

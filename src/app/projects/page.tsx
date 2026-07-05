@@ -437,8 +437,8 @@ export default function ProjectsPage() {
             badalti hai (real, anime, cartoon, Pixar, etc.).
           </p>
 
-          {/* Transition between images — only for Static Storytelling */}
-          {format === "STATIC_STORYTELLING" && (
+          {/* Transition between clips — for Static & Motion Storytelling */}
+          {(format === "STATIC_STORYTELLING" || format === "MOTION_STORYTELLING") && (
             <>
               <label className="mt-4 block text-sm font-medium">
                 Transition (images ke beech)

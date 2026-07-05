@@ -299,3 +299,93 @@ export async function stitchStaticVideo(input: {
     await rm(dir, { recursive: true, force: true });
   }
 }
+
+// Picks the transition for clip/image i. "mix" cycles through every type.
+const MIX_ORDER = ["fade", "fadewhite", "cut"] as const;
+function transitionKind(transition: string | undefined, i: number): string {
+  if (transition === "mix") return MIX_ORDER[i % MIX_ORDER.length];
+  if (transition === "cut" || transition === "fadewhite") return transition;
+  return "fade";
+}
+
+/**
+ * Motion-storytelling stitch. Each Veo clip is trimmed to exactly the words it
+ * illustrates (Veo returns 4/6/8s, we keep only what the narration needs), so
+ * the clips change in step with the voiceover and the video length matches the
+ * narration. Applies the chosen transition and the voiceover as the audio.
+ */
+export async function stitchMotionVideo(input: {
+  clips: StaticImage[];
+  voiceoverUrl: string;
+  aspectRatio?: string;
+  transition?: string;
+  voiceoverWords?: WordTime[] | null;
+}): Promise<string> {
+  const n = input.clips.length;
+  if (n === 0) throw new Error("no clips to stitch");
+
+  const { w, h } = DIMS[input.aspectRatio === "9:16" ? "9:16" : "16:9"];
+  const dir = await mkdtemp(path.join(tmpdir(), "motion-"));
+  try {
+    const vo = await download(input.voiceoverUrl, path.join(dir, "vo.mp3"));
+    const audioDur = (await mediaDuration(vo)) || n * 5;
+    // Word-synced on-screen length for each clip (sums to the audio length).
+    const durations = computeDurations(input.clips, audioDur, input.voiceoverWords ?? null);
+
+    const segFiles: string[] = [];
+    for (const [i, cl] of input.clips.entries()) {
+      const clip = await download(cl.url, path.join(dir, `clip-${i}.mp4`));
+      // Trim to the narration span, but never beyond the clip's real length.
+      const clipLen = (await mediaDuration(clip)) || durations[i];
+      const seg = Math.max(0.8, Math.min(durations[i], clipLen));
+      const kind = transitionKind(input.transition, i);
+      const fadeColor = kind === "fadewhite" ? "white" : "black";
+      const fade = kind === "cut" ? 0 : Math.min(0.35, seg / 4);
+      const fadeChain =
+        fade > 0
+          ? `fade=t=in:st=0:d=${fade}:color=${fadeColor},` +
+            `fade=t=out:st=${(seg - fade).toFixed(3)}:d=${fade}:color=${fadeColor},`
+          : "";
+      const out = path.join(dir, `seg-${i}.mp4`);
+      await run(FFMPEG, [
+        "-y", "-v", "error",
+        "-i", clip,
+        "-filter_complex",
+        `[0:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
+          `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},` +
+          fadeChain +
+          `setsar=1,format=yuv420p[v]`,
+        "-map", "[v]", "-t", seg.toFixed(3),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+        out,
+      ]);
+      segFiles.push(out);
+    }
+
+    // Concatenate the trimmed clips, then attach the voiceover as the audio.
+    const listFile = path.join(dir, "list.txt");
+    await writeFile(listFile, segFiles.map((p) => `file '${p}'`).join("\n"));
+    const combined = path.join(dir, "combined.mp4");
+    await run(FFMPEG, [
+      "-y", "-v", "error",
+      "-f", "concat", "-safe", "0", "-i", listFile,
+      "-c", "copy", combined,
+    ]);
+
+    const finalPath = path.join(dir, "final.mp4");
+    await run(FFMPEG, [
+      "-y", "-v", "error",
+      "-i", combined, "-i", vo,
+      "-map", "0:v", "-map", "1:a", "-shortest",
+      "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+      finalPath,
+    ]);
+
+    const buffer = await readFile(finalPath);
+    const file = new File([buffer], "final.mp4", { type: "video/mp4" });
+    return await fal.storage.upload(file);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}

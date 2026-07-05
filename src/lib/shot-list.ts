@@ -225,6 +225,86 @@ export async function generateStaticImagePrompts(input: {
   }));
 }
 
+const MOTION_CLIPS_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    clips: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          cameraAngle: { type: "string" as const },
+          promptText: {
+            type: "string" as const,
+            description:
+              "Full prompt for one short VIDEO clip: describe the MOTION (what the character/camera does), the scene, lighting and composition. Repeat the character's identity so the face stays consistent across clips.",
+          },
+          narrationText: {
+            type: "string" as const,
+            description:
+              "The exact consecutive words of the narration that THIS clip covers. Every clip's narrationText, joined in order, must reproduce the full narration exactly once — no gaps, no overlaps, no reordering.",
+          },
+        },
+        required: ["cameraAngle", "promptText", "narrationText"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["clips"],
+  additionalProperties: false,
+};
+
+/**
+ * Plans the VIDEO clips for a MOTION story. Unlike static images (one per
+ * equal beat), here the Creative Director decides WHERE to cut: a new clip
+ * only when the action, event or location changes — one continuous action
+ * stays a single clip. Each clip covers roughly 3-7 seconds of narration.
+ */
+export async function generateMotionClips(input: {
+  narration: string;
+  brief: string;
+  characterName: string;
+  characterDescription: string;
+}): Promise<{ cameraAngle: string; prompt: string; narrationText: string }[]> {
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 4096,
+    thinking: { type: "adaptive" },
+    system: [
+      "You are a Creative Director planning short VIDEO clips for a narrated ad. The character MOVES and acts but does NOT speak (a separate voiceover narrates).",
+      "DECIDE THE CUTS YOURSELF. Start a NEW clip only when the visual action, event or location changes. If one continuous action spans several words, keep it as ONE clip.",
+      "Example — 'Raju auto se jaa raha tha, uska accident ho gaya' = TWO clips (riding, then the accident: different events).",
+      "Example — 'Raju haste hue auto se jaa raha hai' = ONE clip (a single continuous action: one wide front shot of Raju smiling as he rides).",
+      "Each clip should cover roughly 3-7 seconds of narration — never cram unrelated actions into one clip, never split a single smooth action.",
+      "For each clip set narrationText to the exact consecutive words it covers. Joined in order they must reproduce the narration exactly, with no gaps or overlaps.",
+      "Every clip features the SAME character — repeat the character's identity description in each promptText so the face never drifts (the video model also gets reference photos).",
+      "promptText describes MOTION and camera work (e.g. slow push-in, tracking shot, character walking/turning). Vary the angles across clips. Cinematic lighting.",
+    ].join("\n"),
+    messages: [
+      {
+        role: "user",
+        content: [
+          `Character: ${input.characterName} — ${input.characterDescription}`,
+          `Brief: ${input.brief}`,
+          `Narration to visualise as moving clips: ${input.narration}`,
+          "Plan the clips now — you decide how many and where to cut.",
+        ].join("\n\n"),
+      },
+    ],
+    output_config: { format: { type: "json_schema", schema: MOTION_CLIPS_SCHEMA } },
+  });
+  const block = response.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("no motion plan returned");
+  const parsed = JSON.parse(block.text) as {
+    clips: { cameraAngle: string; promptText: string; narrationText?: string }[];
+  };
+  return parsed.clips.map((c) => ({
+    cameraAngle: c.cameraAngle,
+    prompt: c.promptText,
+    narrationText: c.narrationText ?? "",
+  }));
+}
+
 export type PlannedShot = {
   type: "VIDEO" | "IMAGE";
   cameraAngle: string;
