@@ -8,32 +8,102 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-sora);
 }
 
 html {
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-  /* Deep near-black with a soft violet glow at the top — cinematic backdrop. */
+  font-family: var(--font-inter), system-ui, Arial, sans-serif;
+  /* Deep near-black with soft violet + blue glows — cinematic backdrop. */
   background:
-    radial-gradient(1000px 600px at 50% -10%, rgba(124, 58, 237, 0.18), transparent 60%),
-    radial-gradient(800px 500px at 100% 0%, rgba(37, 99, 235, 0.12), transparent 55%),
+    radial-gradient(1100px 640px at 50% -12%, rgba(124, 58, 237, 0.20), transparent 60%),
+    radial-gradient(820px 520px at 100% 0%, rgba(37, 99, 235, 0.13), transparent 55%),
+    radial-gradient(700px 500px at 0% 20%, rgba(236, 72, 153, 0.07), transparent 55%),
     var(--background);
   background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Subtle grain-free glass card helper */
+/* Headings use the display font with tighter tracking. */
+h1, h2, h3, .font-display {
+  font-family: var(--font-sora), var(--font-inter), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Glass card — layered translucency with a soft top highlight. */
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
   border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 20px 40px -24px rgba(0, 0, 0, 0.6);
+}
+
+/* Gradient brand text. */
+.gradient-text {
+  background-image: linear-gradient(100deg, #a78bfa, #e879f9 45%, #60a5fa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Reusable primary / ghost buttons. */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(100deg, #7c3aed, #4f46e5 55%, #2563eb);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.7);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 36px -10px rgba(99, 102, 241, 0.85);
+}
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.5; filter: none; transform: none; box-shadow: none; }
+
+/* Nicer focus rings for keyboard users. */
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.6);
+  outline-offset: 2px;
 }
 
 ::selection {
   background: rgba(124, 58, 237, 0.4);
+}
+
+/* Slim, subtle scrollbar. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); background-clip: content-box; }
+
+/* Gentle entrance used on hero/section content. */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

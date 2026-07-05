@@ -238,9 +238,19 @@ export default function ProjectsPage() {
 
         <form
           onSubmit={handleCreate}
-          className="mt-8 max-w-xl glass rounded-2xl p-6"
+          className="mt-8 max-w-2xl glass rounded-2xl p-6 sm:p-8"
         >
-          <h2 className="font-medium text-white">Create a new project</h2>
+          <h2 className="font-display text-xl font-semibold text-white">Create a new project</h2>
+          <p className="mt-1 text-sm text-neutral-400">
+            Set the basics, choose how it should look, then write your brief.
+          </p>
+
+          <div className="mt-6 mb-1 flex items-center gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-300">
+              ① Basics
+            </span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
 
           <label className="mt-4 block text-sm font-medium" htmlFor="title">
             Title
@@ -356,6 +366,13 @@ export default function ProjectsPage() {
               )}
             </>
           )}
+
+          <div className="mt-7 mb-1 flex items-center gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-300">
+              ② Format &amp; look
+            </span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
 
           <label className="mt-4 block text-sm font-medium">Format</label>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -543,6 +560,13 @@ export default function ProjectsPage() {
             </>
           )}
 
+          <div className="mt-7 mb-1 flex items-center gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-300">
+              ③ Your brief
+            </span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
           <label className="mt-4 block text-sm font-medium" htmlFor="brief">
             Brief — what are you advertising?
           </label>
@@ -564,7 +588,7 @@ export default function ProjectsPage() {
                 charSource === "existing" &&
                 characters.length === 0)
             }
-            className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
+            className="btn-primary mt-7 px-6 py-3 text-sm"
           >
             {creating
               ? format === "UGC_PRODUCT_AD"
@@ -572,7 +596,7 @@ export default function ProjectsPage() {
                 : charSource === "new"
                   ? "Creating character & project…"
                   : "Creating…"
-              : "Create project"}
+              : "Create project →"}
           </button>
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </form>
