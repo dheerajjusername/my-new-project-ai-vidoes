@@ -4,11 +4,11 @@ import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/anthropic";
 
 const run = promisify(execFile);
 const FFMPEG = ffmpegInstaller.path;
-const anthropic = new Anthropic();
 
 // Checks a generated talking clip: is the intended speaker the one actually
 // talking, and is nobody walking out of the frame? Uses a few sampled frames

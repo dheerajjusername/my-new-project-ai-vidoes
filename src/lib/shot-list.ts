@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { VideoFormat } from "@/generated/prisma/enums";
-
-const anthropic = new Anthropic();
+import { anthropic } from "@/lib/anthropic";
 
 // Per-format direction for the Creative Director. Each format is just a
 // preset over the shared shot building blocks (type, dialogue, angle,
