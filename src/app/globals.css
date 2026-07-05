@@ -115,3 +115,46 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
 .animate-in {
   animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* Slow-drifting colour blobs behind every page — subtle living backdrop. */
+.bg-blobs {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bg-blobs span {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.28;
+}
+.bg-blobs span:nth-child(1) {
+  width: 42vw; height: 42vw; left: -8vw; top: -6vw;
+  background: #7c3aed;
+  animation: drift1 22s ease-in-out infinite;
+}
+.bg-blobs span:nth-child(2) {
+  width: 36vw; height: 36vw; right: -6vw; top: 10vh;
+  background: #2563eb;
+  animation: drift2 26s ease-in-out infinite;
+}
+.bg-blobs span:nth-child(3) {
+  width: 30vw; height: 30vw; left: 30vw; bottom: -10vw;
+  background: #db2777;
+  opacity: 0.18;
+  animation: drift1 30s ease-in-out infinite reverse;
+}
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6vw, 5vh) scale(1.1); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-5vw, 6vh) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-blobs span { animation: none; }
+  .animate-in { animation: none; }
+}

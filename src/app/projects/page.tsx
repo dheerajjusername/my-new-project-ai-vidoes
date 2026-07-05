@@ -230,11 +230,19 @@ export default function ProjectsPage() {
       <SiteHeader active="projects" />
 
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your projects</h1>
-        <p className="mt-2 text-neutral-400">
-          A project turns your brief into a scene-by-scene video ad starring one
-          of your characters.
-        </p>
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-violet-600/15 via-transparent to-blue-600/10 p-6 sm:p-8">
+          <div
+            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full blur-3xl"
+            style={{ background: "radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)" }}
+          />
+          <h1 className="relative text-3xl font-semibold tracking-tight sm:text-4xl">
+            Your <span className="gradient-text">projects</span>
+          </h1>
+          <p className="relative mt-2 max-w-xl text-neutral-400">
+            Turn a brief into a scene-by-scene video ad starring one of your
+            characters — pick a format, generate live, and export.
+          </p>
+        </div>
 
         <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <form

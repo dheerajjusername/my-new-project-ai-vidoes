@@ -99,6 +99,58 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Showcase — real AI-generated ads playing in phone mockups */}
+      <section className="border-t border-white/10">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
+              See it in action
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+              Real ads, made on Ad Champ
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-neutral-400">
+              Every clip below was generated end-to-end — one character, real
+              voice, synced to the words. No camera, no crew.
+            </p>
+          </div>
+
+          <div className="mt-14 flex flex-wrap items-center justify-center gap-8 sm:gap-10">
+            {[
+              { src: "/showcase/anime-chai.mp4", label: "Static · Anime", tint: "from-fuchsia-500/30" },
+              { src: "/showcase/motion-priya.mp4", label: "Motion · Realistic", tint: "from-violet-500/30", lift: true },
+              { src: "/showcase/anime-priya.mp4", label: "Static · Anime", tint: "from-blue-500/30" },
+            ].map((v) => (
+              <div key={v.src} className={"relative " + (v.lift ? "sm:-translate-y-6" : "")}>
+                <div
+                  className={`pointer-events-none absolute -inset-5 rounded-[3rem] bg-gradient-to-b ${v.tint} to-transparent blur-2xl`}
+                />
+                <div className="relative w-[190px] overflow-hidden rounded-[2rem] border-[6px] border-neutral-800 bg-black shadow-2xl shadow-black/60 sm:w-[210px]">
+                  <video
+                    src={v.src}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    className="aspect-[9/16] w-full object-cover"
+                  />
+                  <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/60 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
+                    {v.label}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-14 text-center">
+            <a href="/characters" className="btn-primary px-7 py-3.5 text-sm">
+              Make one like these →
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Why */}
       <section className="border-t border-white/10">
         <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 sm:grid-cols-3">
