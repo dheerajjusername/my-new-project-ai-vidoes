@@ -1,6 +1,10 @@
 import { razorpayConfigured } from "@/lib/razorpay";
 import { emailConfigured } from "@/lib/email";
 
+// Read env at request time, never cache this.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Public health check — reports only whether integrations are configured
 // (booleans, never any secret values). Useful for verifying env vars.
 export function GET() {
