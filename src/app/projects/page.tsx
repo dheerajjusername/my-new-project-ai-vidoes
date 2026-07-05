@@ -443,11 +443,12 @@ export default function ProjectsPage() {
               <label className="mt-4 block text-sm font-medium">
                 Transition (images ke beech)
               </label>
-              <div className="mt-2 grid grid-cols-3 gap-2">
+              <div className="mt-2 grid grid-cols-2 gap-2">
                 {[
                   { value: "fade", label: "Fade", desc: "Kaale me soft dip" },
                   { value: "fadewhite", label: "Flash", desc: "Safed flash" },
                   { value: "cut", label: "Cut", desc: "Sharp, no fade" },
+                  { value: "mix", label: "Mix 🎲", desc: "Saare bari-bari" },
                 ].map((t) => (
                   <button
                     type="button"

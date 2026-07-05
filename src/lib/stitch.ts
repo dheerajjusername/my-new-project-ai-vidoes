@@ -223,12 +223,14 @@ export async function stitchStaticVideo(input: {
   if (n === 0) throw new Error("no images to stitch");
 
   const { w, h } = DIMS[input.aspectRatio === "9:16" ? "9:16" : "16:9"];
-  const kind = input.transition === "cut"
-    ? "cut"
-    : input.transition === "fadewhite"
-      ? "fadewhite"
-      : "fade";
-  const fadeColor = kind === "fadewhite" ? "white" : "black";
+  // "mix" cycles through every transition across the images; otherwise every
+  // image uses the one chosen type.
+  const MIX = ["fade", "fadewhite", "cut"] as const;
+  const kindFor = (i: number): string => {
+    if (input.transition === "mix") return MIX[i % MIX.length];
+    if (input.transition === "cut" || input.transition === "fadewhite") return input.transition;
+    return "fade";
+  };
   const dir = await mkdtemp(path.join(tmpdir(), "static-"));
   try {
     // 1. Voiceover + its duration → drives all timing.
@@ -243,6 +245,8 @@ export async function stitchStaticVideo(input: {
     const segFiles: string[] = [];
     for (const [i, im] of input.images.entries()) {
       const seg = durations[i];
+      const kind = kindFor(i);
+      const fadeColor = kind === "fadewhite" ? "white" : "black";
       const fade = kind === "cut" ? 0 : Math.min(0.35, seg / 4);
       const img = await download(im.url, path.join(dir, `img-${i}`));
       const out = path.join(dir, `seg-${i}.mp4`);

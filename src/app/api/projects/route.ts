@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const imageStyle = isValidImageStyle(body?.imageStyle)
     ? (body.imageStyle as string)
     : DEFAULT_IMAGE_STYLE;
-  const transition = ["fade", "fadewhite", "cut"].includes(body?.transition)
+  const transition = ["fade", "fadewhite", "cut", "mix"].includes(body?.transition)
     ? (body.transition as string)
     : "fade";
 
