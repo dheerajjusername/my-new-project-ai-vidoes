@@ -80,9 +80,8 @@ export async function POST(
   } catch (error) {
     await refundCredits(user.id, "shotList");
     const message = error instanceof Error ? error.message : "failed";
-    const stack = error instanceof Error ? (error.stack ?? "").split("\n").slice(0, 8).join(" | ") : "";
     return Response.json(
-      { error: `Could not plan the images: ${message}`, _stack: stack },
+      { error: `Could not plan the images: ${message}` },
       { status: 502 },
     );
   }
