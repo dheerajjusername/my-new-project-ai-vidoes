@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { VIDEO_MODELS, DEFAULT_VIDEO_MODEL } from "@/lib/video-models";
 import { VOICES, DEFAULT_VOICE } from "@/lib/voices";
 import { IMAGE_STYLES } from "@/lib/image-styles";
+import { ScriptUpload } from "@/components/script-upload";
 
 type Shot = {
   id: string;
@@ -393,13 +394,16 @@ export default function ProjectDetailPage({
                 <label className="text-sm font-medium text-white">
                   Step 1 · Narration script
                 </label>
-                <button
-                  onClick={suggestNarration}
-                  disabled={suggesting}
-                  className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-neutral-200 hover:bg-white/10 disabled:opacity-50"
-                >
-                  {suggesting ? "Writing…" : "✨ Suggest with AI (3 credits)"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <ScriptUpload onText={setNarration} label="Upload" />
+                  <button
+                    onClick={suggestNarration}
+                    disabled={suggesting}
+                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-neutral-200 hover:bg-white/10 disabled:opacity-50"
+                  >
+                    {suggesting ? "Writing…" : "✨ Suggest with AI (3 credits)"}
+                  </button>
+                </div>
               </div>
               <textarea
                 value={narration}
@@ -706,7 +710,10 @@ export default function ProjectDetailPage({
           {/* Voiceover — generic formats only (Static/Motion use their own Step 2) */}
           {!isGuided && (
           <div className="mt-8 glass rounded-2xl p-5">
-            <h3 className="font-medium text-white">Voiceover (ElevenLabs)</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-medium text-white">Voiceover (ElevenLabs)</h3>
+              <ScriptUpload onText={setVoScript} label="Upload script" />
+            </div>
             <p className="mt-1 text-xs text-neutral-500">
               Optional narration for the final video (3 credits). Keep it short.
             </p>

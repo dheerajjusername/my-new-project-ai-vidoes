@@ -3,6 +3,11 @@ import { generateVoiceover } from "@/lib/voiceover";
 import { resolveVideoModel } from "@/lib/video-models";
 import { styleDirective } from "@/lib/image-styles";
 
+// Every generated face must have clear, open, natural eyes — a recurring fix
+// for characters that came out looking blank / eyes-closed ("blind").
+const EYES_DIRECTIVE =
+  "Both eyes clearly open, sharp and natural with visible irises and a lively gaze — never closed, squinting, blank or blind-looking.";
+
 type VeoOutput = { video: { url: string } };
 type NanoBananaOutput = { images: { url: string }[] };
 type LipsyncOutput = { video: { url: string } };
@@ -18,7 +23,7 @@ async function generateFirstFrame(
   const ar = aspectRatio === "9:16" ? "9:16" : "16:9";
   const frame = await fal.subscribe("fal-ai/nano-banana-2/edit", {
     input: {
-      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. ${styleDirective(style)}, ${ar}.`,
+      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. ${styleDirective(style)}, ${ar}. ${EYES_DIRECTIVE}`,
       image_urls: referenceImages,
       aspect_ratio: ar,
       num_images: 1,
@@ -43,7 +48,7 @@ export async function generateShotImage(input: {
   const ar = input.aspectRatio === "9:16" ? "9:16" : "16:9";
   const result = await fal.subscribe("fal-ai/nano-banana-2/edit", {
     input: {
-      prompt: `Using the person from the reference images (same face, same look), create this scene: ${input.prompt}. ${styleDirective(input.style)}, ${ar}, strong composition.`,
+      prompt: `Using the person from the reference images (same face, same look), create this scene: ${input.prompt}. ${styleDirective(input.style)}, ${ar}, strong composition. ${EYES_DIRECTIVE}`,
       image_urls: input.referenceImages,
       aspect_ratio: ar,
       num_images: 1,

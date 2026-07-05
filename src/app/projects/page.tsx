@@ -5,6 +5,7 @@ import { redirectIfLoggedOut } from "@/components/auth-nav";
 import { SiteHeader } from "@/components/site-header";
 import { VOICES, DEFAULT_VOICE } from "@/lib/voices";
 import { IMAGE_STYLES, DEFAULT_IMAGE_STYLE } from "@/lib/image-styles";
+import { ScriptUpload } from "@/components/script-upload";
 
 type Character = { id: string; name: string; status: string };
 type Project = {
@@ -576,9 +577,12 @@ export default function ProjectsPage() {
             <span className="h-px flex-1 bg-white/10" />
           </div>
 
-          <label className="mt-4 block text-sm font-medium" htmlFor="brief">
-            Brief — what are you advertising?
-          </label>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <label className="block text-sm font-medium" htmlFor="brief">
+              Brief — what are you advertising?
+            </label>
+            <ScriptUpload onText={setBrief} label="Upload" />
+          </div>
           <textarea
             id="brief"
             value={brief}
