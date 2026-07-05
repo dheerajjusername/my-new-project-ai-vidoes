@@ -80,6 +80,40 @@ export async function generateShotImage(input: {
 }
 
 /**
+ * TALKING first-frame / scene image. Either made purely from a text prompt, or
+ * from a reference image the user uploads ("make it like this") which biases
+ * the look/composition. This is the single frame every dialogue clip animates
+ * from. Cost: ~$0.04-0.08 (one Nano Banana image).
+ */
+export async function generateSceneImage(input: {
+  prompt: string;
+  referenceImageUrl?: string | null;
+  aspectRatio?: string;
+  style?: string | null;
+}): Promise<string> {
+  const ar = input.aspectRatio === "9:16" ? "9:16" : "16:9";
+  const result = input.referenceImageUrl
+    ? await fal.subscribe("fal-ai/nano-banana-2/edit", {
+        input: {
+          prompt: `Using this reference image as the guide for the look, style, framing and characters, create this scene: ${input.prompt}. Keep it close to the reference. ${styleDirective(input.style)}, ${ar}, cinematic. ${EYES_DIRECTIVE}`,
+          image_urls: [input.referenceImageUrl],
+          aspect_ratio: ar,
+          num_images: 1,
+        },
+      })
+    : await fal.subscribe("fal-ai/nano-banana-2", {
+        input: {
+          prompt: `${input.prompt}. ${styleDirective(input.style)}, ${ar}, cinematic, strong composition. ${EYES_DIRECTIVE}`,
+          aspect_ratio: ar,
+          num_images: 1,
+        },
+      });
+  const url = (result.data as NanoBananaOutput).images[0]?.url;
+  if (!url) throw new Error("Scene image generation returned no image");
+  return url;
+}
+
+/**
  * VIDEO building block. Pipeline:
  *   1. Nano Banana first frame (consistent face).
  *   2. The chosen model animates it for the shot's duration.

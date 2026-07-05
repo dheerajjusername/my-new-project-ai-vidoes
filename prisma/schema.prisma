@@ -71,6 +71,10 @@ model Project {
   imageStyle    String        @default("realistic")
   // Transition between static images: "fade" (black dip), "fadewhite", "cut".
   transition    String        @default("fade")
+  // Talking format: the finalized first-frame / scene image that every
+  // dialogue clip is animated from (generated, uploaded, or made from a
+  // reference the user provides).
+  sceneImageUrl String?
   // Narration script (used by static/motion formats to drive the voiceover
   // and the number of images).
   narrationScript String?

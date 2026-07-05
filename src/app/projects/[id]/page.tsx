@@ -31,6 +31,7 @@ type Project = {
   aspectRatio: string;
   imageStyle: string;
   transition: string;
+  sceneImageUrl: string | null;
   narrationScript: string | null;
   pronunciationFixes: string | null;
   status: string;
@@ -66,6 +67,9 @@ export default function ProjectDetailPage({
   // Pronunciation fixes: word the voice says wrong → how to spell it.
   const [pronFixes, setPronFixes] = useState<{ from: string; to: string }[]>([]);
   const [showPron, setShowPron] = useState(false);
+  // Talking: scene / first-frame image
+  const [scenePrompt, setScenePrompt] = useState("");
+  const [sceneBusy, setSceneBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -297,6 +301,71 @@ export default function ProjectDetailPage({
     }
   }
 
+  // --- Talking: scene / first-frame image ---
+
+  async function uploadImage(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Upload failed");
+    return data.url as string;
+  }
+
+  // Generate the scene image from the prompt (optionally guided by a reference).
+  async function generateScene(referenceImageUrl?: string) {
+    setSceneBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/scene-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: scenePrompt, referenceImageUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setSceneBusy(false);
+    }
+  }
+
+  // Upload a reference photo, then generate a scene "like this".
+  async function sceneFromReference(file: File) {
+    setSceneBusy(true);
+    setError(null);
+    try {
+      const url = await uploadImage(file);
+      await generateScene(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+      setSceneBusy(false);
+    }
+  }
+
+  // Upload your own final image and use it directly as the scene.
+  async function sceneFromUpload(file: File) {
+    setSceneBusy(true);
+    setError(null);
+    try {
+      const url = await uploadImage(file);
+      const res = await fetch(`/api/projects/${id}/scene-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadedImageUrl: url }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setSceneBusy(false);
+    }
+  }
+
   async function createFinalVideo() {
     setStitching(true);
     setError(null);
@@ -332,6 +401,7 @@ export default function ProjectDetailPage({
   const anyVideoShot = project.shots.some((s) => s.type === "VIDEO");
   const isStatic = project.format === "STATIC_STORYTELLING";
   const isMotion = project.format === "MOTION_STORYTELLING";
+  const isTalking = project.format === "TALKING";
   const isGuided = isStatic || isMotion;
   const unit = isMotion ? "clips" : "images"; // wording for the guided flow
   const styleLabel =
@@ -575,6 +645,97 @@ export default function ProjectDetailPage({
                 </p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Talking — scene / first-frame image */}
+        {isTalking && (
+          <div className="mt-8 glass rounded-2xl border border-violet-400/30 p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Talking</h2>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-neutral-300">
+                {project.aspectRatio === "9:16" ? "9:16 Portrait" : "16:9 Landscape"}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-neutral-500">
+              Step 1 · Scene / first frame — ye ek hi image hai jisme aapke
+              character(s) baat karenge. Prompt se banao, ya apni image upload
+              karo, ya ek reference photo do &ldquo;aisा banao&rdquo;.
+            </p>
+
+            <label className="mt-4 block text-sm font-medium text-white">
+              Scene describe karo
+            </label>
+            <textarea
+              value={scenePrompt}
+              onChange={(e) => setScenePrompt(e.target.value)}
+              rows={3}
+              placeholder="e.g. Two South Indian men in a green paddy field — a farmer in a dirty t-shirt and a young doctor with a stethoscope, facing each other, morning light."
+              className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+            />
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => generateScene()}
+                disabled={sceneBusy || scenePrompt.trim().length === 0}
+                className="rounded-full bg-gradient-to-r from-violet-500 to-blue-500 px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {sceneBusy ? "Working…" : "Generate scene (8 credits)"}
+              </button>
+
+              <label className="cursor-pointer rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-neutral-200 hover:bg-white/10">
+                📎 Reference photo → &ldquo;aisा banao&rdquo;
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={sceneBusy || scenePrompt.trim().length === 0}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) sceneFromReference(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+
+              <label className="cursor-pointer rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-neutral-200 hover:bg-white/10">
+                ⬆ Apni image upload karo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={sceneBusy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) sceneFromUpload(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            <p className="mt-2 text-[11px] text-neutral-500">
+              Reference photo dene par uska prompt bhi likho — hum reference jaisा
+              banakar aapki scene par laga denge.
+            </p>
+
+            {project.sceneImageUrl && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-emerald-300">
+                  ✓ Scene set — dialogue clips isi image se banenge
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={project.sceneImageUrl}
+                  alt="Scene first frame"
+                  className="mt-2 w-full max-w-sm rounded-lg border border-white/10"
+                />
+              </div>
+            )}
+
+            <p className="mt-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              ⏳ Step 2 (script → dialogue clips) abhi ban raha hai — scene set
+              karke rakho, agla update aa raha hai.
+            </p>
           </div>
         )}
 
