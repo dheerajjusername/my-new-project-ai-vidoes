@@ -879,8 +879,10 @@ export default function ProjectDetailPage({
                   className="rounded-full bg-gradient-to-r from-violet-500 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {generatingAll
-                    ? "Generating all shots…"
-                    : `Generate all shots (${pendingCost} credits)`}
+                    ? `Generating… (${completedCount}/${project.shots.length})`
+                    : completedCount > 0
+                      ? `▶ Resume generation · ${pendingCount} left (${pendingCost} credits)`
+                      : `Generate all shots (${pendingCost} credits)`}
                 </button>
               )}
               {!isGuided && !isTalking && (
@@ -907,6 +909,16 @@ export default function ProjectDetailPage({
                 style={{ width: `${(completedCount / project.shots.length) * 100}%` }}
               />
             </div>
+          )}
+
+          {/* Resume reassurance */}
+          {project.shots.length > 0 && anyPending && (
+            <p className="mt-3 rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-neutral-400">
+              💾 Jitne shots ban gaye hain wo <b className="text-neutral-200">save ho jaate hain</b>.
+              Aap net band karke ya laptop band karke baad me wapas aa sakte ho —
+              is page ko dobara khol kar <b className="text-neutral-200">▶ Resume generation</b> dabao,
+              baaki shots wahीं se ban jaayenge (jo ban chuke hain unke credits dobara nahi lagte).
+            </p>
           )}
 
           {/* Video model picker — only when there are video shots */}

@@ -36,8 +36,14 @@ export async function POST(
   if (!shot) {
     return Response.json({ error: "shot not found" }, { status: 404 });
   }
+  // Block only a *fresh* in-progress generation. If a shot has been stuck in
+  // GENERATING for a while (the browser/net dropped mid-generation), treat it
+  // as stale and allow a retry — this is what makes "resume later" work.
   if (shot.status === "GENERATING") {
-    return Response.json({ error: "shot is already generating" }, { status: 409 });
+    const ageMs = Date.now() - new Date(shot.updatedAt).getTime();
+    if (ageMs < 5 * 60 * 1000) {
+      return Response.json({ error: "shot is already generating" }, { status: 409 });
+    }
   }
 
   const isImage = shot.type === "IMAGE";
