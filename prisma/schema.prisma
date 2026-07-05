@@ -54,8 +54,10 @@ model Project {
   id            String        @id @default(cuid())
   userId        String
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  characterId   String
-  character     Character     @relation(fields: [characterId], references: [id])
+  // Optional: a project can be made without a saved character (the character
+  // is then just described in the brief/prompts and images are text-to-image).
+  characterId   String?
+  character     Character?    @relation(fields: [characterId], references: [id])
   title         String
   // What the user wants to advertise / the creative brief they typed in.
   brief         String

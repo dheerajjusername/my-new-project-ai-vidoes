@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateNarrationScript } from "@/lib/shot-list";
 import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
+import { normalizeScript } from "@/lib/text";
 
 // Suggests a voiceover narration script from the project's brief (Claude).
 export async function POST(
@@ -25,10 +26,12 @@ export async function POST(
     return insufficientCredits("shotList");
   }
   try {
-    const script = await generateNarrationScript({
-      brief: project.brief,
-      characterName: project.character.name,
-    });
+    const script = normalizeScript(
+      await generateNarrationScript({
+        brief: project.brief,
+        characterName: project.character?.name ?? "the main character",
+      }),
+    );
     await prisma.project.update({
       where: { id: project.id },
       data: { narrationScript: script },

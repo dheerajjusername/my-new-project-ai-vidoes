@@ -43,8 +43,8 @@ export async function POST(
       brief: project.brief,
       format: project.format,
       customFormat: project.customFormat,
-      characterName: project.character.name,
-      characterDescription: project.character.description,
+      characterName: project.character?.name ?? "the main character",
+      characterDescription: project.character?.description ?? "",
     });
 
     await prisma.shot.deleteMany({ where: { projectId: project.id } });

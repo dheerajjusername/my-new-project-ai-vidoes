@@ -21,14 +21,23 @@ async function generateFirstFrame(
   aspectRatio?: string | null,
 ): Promise<string> {
   const ar = aspectRatio === "9:16" ? "9:16" : "16:9";
-  const frame = await fal.subscribe("fal-ai/nano-banana-2/edit", {
-    input: {
-      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. ${styleDirective(style)}, ${ar}. ${EYES_DIRECTIVE}`,
-      image_urls: referenceImages,
-      aspect_ratio: ar,
-      num_images: 1,
-    },
-  });
+  const hasRefs = referenceImages.length > 0;
+  const frame = hasRefs
+    ? await fal.subscribe("fal-ai/nano-banana-2/edit", {
+        input: {
+          prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. ${styleDirective(style)}, ${ar}. ${EYES_DIRECTIVE}`,
+          image_urls: referenceImages,
+          aspect_ratio: ar,
+          num_images: 1,
+        },
+      })
+    : await fal.subscribe("fal-ai/nano-banana-2", {
+        input: {
+          prompt: `Opening frame of this video shot: ${prompt}. ${styleDirective(style)}, ${ar}. ${EYES_DIRECTIVE}`,
+          aspect_ratio: ar,
+          num_images: 1,
+        },
+      });
   const url = (frame.data as NanoBananaOutput).images[0]?.url;
   if (!url) throw new Error("First-frame generation returned no image");
   return url;
@@ -46,14 +55,25 @@ export async function generateShotImage(input: {
   style?: string | null;
 }): Promise<string> {
   const ar = input.aspectRatio === "9:16" ? "9:16" : "16:9";
-  const result = await fal.subscribe("fal-ai/nano-banana-2/edit", {
-    input: {
-      prompt: `Using the person from the reference images (same face, same look), create this scene: ${input.prompt}. ${styleDirective(input.style)}, ${ar}, strong composition. ${EYES_DIRECTIVE}`,
-      image_urls: input.referenceImages,
-      aspect_ratio: ar,
-      num_images: 1,
-    },
-  });
+  const hasRefs = input.referenceImages.length > 0;
+  // With a character we keep the reference face; without one it's a plain
+  // text-to-image scene described entirely by the prompt.
+  const result = hasRefs
+    ? await fal.subscribe("fal-ai/nano-banana-2/edit", {
+        input: {
+          prompt: `Using the person from the reference images (same face, same look), create this scene: ${input.prompt}. ${styleDirective(input.style)}, ${ar}, strong composition. ${EYES_DIRECTIVE}`,
+          image_urls: input.referenceImages,
+          aspect_ratio: ar,
+          num_images: 1,
+        },
+      })
+    : await fal.subscribe("fal-ai/nano-banana-2", {
+        input: {
+          prompt: `${input.prompt}. ${styleDirective(input.style)}, ${ar}, strong composition. ${EYES_DIRECTIVE}`,
+          aspect_ratio: ar,
+          num_images: 1,
+        },
+      });
   const url = (result.data as NanoBananaOutput).images[0]?.url;
   if (!url) throw new Error("Image generation returned no image");
   return url;

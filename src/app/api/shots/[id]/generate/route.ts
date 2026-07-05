@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateShotVideo, generateShotImage } from "@/lib/video";
 import { resolveVideoModel } from "@/lib/video-models";
+import { DEFAULT_VOICE } from "@/lib/voices";
 import {
   reserveCreditsAmount,
   refundCreditsAmount,
@@ -61,7 +62,7 @@ export async function POST(
     if (isImage) {
       const imageUrl = await generateShotImage({
         prompt: shot.prompt,
-        referenceImages: shot.project.character.referenceImages,
+        referenceImages: shot.project.character?.referenceImages ?? [],
         aspectRatio: shot.project.aspectRatio,
         style: shot.project.imageStyle,
       });
@@ -78,8 +79,8 @@ export async function POST(
       durationSec: shot.durationSec,
       dialogue: shot.dialogue,
       dialogueLanguage: shot.dialogueLanguage,
-      voice: shot.project.character.voice,
-      referenceImages: shot.project.character.referenceImages,
+      voice: shot.project.character?.voice ?? DEFAULT_VOICE,
+      referenceImages: shot.project.character?.referenceImages ?? [],
       style: shot.project.imageStyle,
       aspectRatio: shot.project.aspectRatio,
       // Motion clips get their audio from the narration voiceover, so don't

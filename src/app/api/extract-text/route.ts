@@ -1,6 +1,7 @@
 export const maxDuration = 30;
 
 import { getCurrentUser, unauthorized } from "@/lib/auth";
+import { normalizeScript } from "@/lib/text";
 
 // Extracts plain text from an uploaded script file (.txt / .md, .docx, .pdf)
 // so users can upload a script instead of typing it.
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
       text = buf.toString("utf8");
     }
 
-    text = text.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    text = normalizeScript(text).replace(/\n{3,}/g, "\n\n");
     if (!text) {
       return Response.json(
         { error: "Couldn't find any text in that file." },

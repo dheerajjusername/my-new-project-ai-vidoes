@@ -36,7 +36,7 @@ type Project = {
   status: string;
   voiceoverUrl: string | null;
   finalVideoUrl: string | null;
-  character: { id: string; name: string; referenceImages: string[] };
+  character: { id: string; name: string; referenceImages: string[] } | null;
   shots: Shot[];
 };
 
@@ -358,7 +358,7 @@ export default function ProjectDetailPage({
         </div>
         <p className="mt-2 max-w-2xl text-neutral-400">{project.brief}</p>
         <p className="mt-1 text-sm text-neutral-500">
-          Character: {project.character.name} · Format:{" "}
+          Character: {project.character?.name ?? "None"} · Format:{" "}
           {project.format.replaceAll("_", " ").toLowerCase()}
           {project.customFormat ? ` — ${project.customFormat}` : ""}
           {" · "}

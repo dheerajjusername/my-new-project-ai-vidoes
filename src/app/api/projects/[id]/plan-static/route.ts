@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateStaticImagePrompts } from "@/lib/shot-list";
 import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
+import { normalizeScript } from "@/lib/text";
 
 // Plans the images for a static story. Count = words in the narration ÷ 6
 // (so each image covers ~3 seconds of narration). Creates the IMAGE shots.
@@ -21,7 +22,9 @@ export async function POST(
   if (!project) {
     return Response.json({ error: "project not found" }, { status: 404 });
   }
-  const narration = project.narrationScript?.trim();
+  const narration = project.narrationScript
+    ? normalizeScript(project.narrationScript)
+    : "";
   if (!narration) {
     return Response.json(
       { error: "Generate the voiceover / narration first." },
@@ -46,8 +49,8 @@ export async function POST(
     const images = await generateStaticImagePrompts({
       narration,
       brief: project.brief,
-      characterName: project.character.name,
-      characterDescription: project.character.description,
+      characterName: project.character?.name ?? "the main character",
+      characterDescription: project.character?.description ?? "",
       count,
     });
 

@@ -6,6 +6,7 @@ import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateVoiceoverWithTimestamps } from "@/lib/voiceover";
 import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
 import { parseFixes, applyPronunciationFixes, type PronunciationFix } from "@/lib/pronounce";
+import { normalizeScript } from "@/lib/text";
 
 // Generates the project's voiceover from a user-provided script
 // (~$0.10 per 1000 characters via ElevenLabs).
@@ -15,7 +16,7 @@ export async function POST(
 ) {
   const { id } = await params;
   const body = await request.json().catch(() => null);
-  const text = typeof body?.text === "string" ? body.text.trim() : "";
+  const text = typeof body?.text === "string" ? normalizeScript(body.text) : "";
   const voice = typeof body?.voice === "string" ? body.voice.trim() : undefined;
   const languageCode =
     typeof body?.languageCode === "string" && body.languageCode

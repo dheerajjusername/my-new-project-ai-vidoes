@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import { generateMotionClips } from "@/lib/shot-list";
 import { reserveCredits, refundCredits, insufficientCredits } from "@/lib/credits";
+import { normalizeScript } from "@/lib/text";
 
 type Word = { text: string; start: number; end: number };
 
@@ -69,7 +70,9 @@ export async function POST(
   if (!project) {
     return Response.json({ error: "project not found" }, { status: 404 });
   }
-  const narration = project.narrationScript?.trim();
+  const narration = project.narrationScript
+    ? normalizeScript(project.narrationScript)
+    : "";
   if (!narration) {
     return Response.json(
       { error: "Generate the voiceover / narration first." },
@@ -90,8 +93,8 @@ export async function POST(
     const clips = await generateMotionClips({
       narration,
       brief: project.brief,
-      characterName: project.character.name,
-      characterDescription: project.character.description,
+      characterName: project.character?.name ?? "the main character",
+      characterDescription: project.character?.description ?? "",
     });
 
     // Time each clip to its words → pick a Veo length that covers it.

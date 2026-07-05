@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
 import type { VideoFormat } from "@/generated/prisma/enums";
 import { isValidImageStyle, DEFAULT_IMAGE_STYLE } from "@/lib/image-styles";
+import { normalizeScript } from "@/lib/text";
 
 const FORMATS: VideoFormat[] = [
   "TALKING",
@@ -29,7 +30,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const title = typeof body?.title === "string" ? body.title.trim() : "";
-  const brief = typeof body?.brief === "string" ? body.brief.trim() : "";
+  const brief = typeof body?.brief === "string" ? normalizeScript(body.brief) : "";
   const characterId =
     typeof body?.characterId === "string" ? body.characterId : "";
   const format = FORMATS.includes(body?.format) ? (body.format as VideoFormat) : null;
@@ -43,9 +44,9 @@ export async function POST(request: Request) {
     ? (body.transition as string)
     : "fade";
 
-  if (!title || !brief || !characterId || !format) {
+  if (!title || !brief || !format) {
     return Response.json(
-      { error: "title, brief, characterId and format are required" },
+      { error: "title, brief and format are required" },
       { status: 400 },
     );
   }
@@ -58,23 +59,28 @@ export async function POST(request: Request) {
 
   const user = await getCurrentUser();
   if (!user) return unauthorized();
-  const character = await prisma.character.findFirst({
-    where: { id: characterId, userId: user.id },
-  });
-  if (!character) {
-    return Response.json({ error: "character not found" }, { status: 404 });
-  }
-  if (character.status !== "READY") {
-    return Response.json(
-      { error: "character's reference images are not ready yet" },
-      { status: 400 },
-    );
+
+  // Character is optional. If one was chosen, it must belong to the user and
+  // be ready; otherwise the project has no character (text-to-image scenes).
+  if (characterId) {
+    const character = await prisma.character.findFirst({
+      where: { id: characterId, userId: user.id },
+    });
+    if (!character) {
+      return Response.json({ error: "character not found" }, { status: 404 });
+    }
+    if (character.status !== "READY") {
+      return Response.json(
+        { error: "character's reference images are not ready yet" },
+        { status: 400 },
+      );
+    }
   }
 
   const project = await prisma.project.create({
     data: {
       userId: user.id,
-      characterId,
+      characterId: characterId || null,
       title,
       brief,
       format,

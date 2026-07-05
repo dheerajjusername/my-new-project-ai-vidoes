@@ -14,7 +14,7 @@ type Project = {
   brief: string;
   format: string;
   status: string;
-  character: { name: string };
+  character: { name: string } | null;
   shots: { status: string }[];
 };
 
@@ -69,7 +69,7 @@ export default function ProjectsPage() {
   const [imageStyle, setImageStyle] = useState(DEFAULT_IMAGE_STYLE);
   const [transition, setTransition] = useState("fade");
   // Character source: pick an existing one or create a new one inline.
-  const [charSource, setCharSource] = useState<"existing" | "new">("existing");
+  const [charSource, setCharSource] = useState<"existing" | "new" | "none">("existing");
   const [newCharName, setNewCharName] = useState("");
   const [newCharMode, setNewCharMode] = useState<"describe" | "photo">("describe");
   const [newCharDesc, setNewCharDesc] = useState("");
@@ -173,7 +173,7 @@ export default function ProjectsPage() {
 
       // Resolve the character: either an existing one, or create a new one
       // inline (upload photo if needed, then generate its 5 reference images).
-      let useCharacterId = characterId;
+      let useCharacterId = charSource === "none" ? "" : characterId;
       if (charSource === "new") {
         if (!newCharName.trim() || (newCharMode === "describe" && !newCharDesc.trim())) {
           setError("Enter a character name and description.");
@@ -276,8 +276,10 @@ export default function ProjectsPage() {
 
           {format !== "UGC_PRODUCT_AD" && (
             <>
-              <label className="mt-4 block text-sm font-medium">Character</label>
-              <div className="mt-1 flex rounded-lg bg-white/5 p-1 text-sm font-medium">
+              <label className="mt-4 block text-sm font-medium">
+                Character <span className="font-normal text-neutral-500">(optional)</span>
+              </label>
+              <div className="mt-1 flex rounded-lg bg-white/5 p-1 text-xs font-medium">
                 <button
                   type="button"
                   onClick={() => setCharSource("existing")}
@@ -292,9 +294,22 @@ export default function ProjectsPage() {
                 >
                   ＋ Create new
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setCharSource("none")}
+                  className={`flex-1 rounded-md py-1.5 ${charSource === "none" ? "bg-white text-black" : "text-neutral-400"}`}
+                >
+                  No character
+                </button>
               </div>
 
-              {charSource === "existing" ? (
+              {charSource === "none" ? (
+                <p className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-neutral-400">
+                  Bina character ke — scenes seedhe aapke brief/prompt se banenge
+                  (har shot text-to-image). Face har shot me thoda alag ho sakta
+                  hai (consistency ke liye character banao).
+                </p>
+              ) : charSource === "existing" ? (
                 <>
                   <select
                     value={characterId}
@@ -658,7 +673,7 @@ export default function ProjectsPage() {
               <a href={`/projects/${p.id}`} className="min-w-0 flex-1 hover:opacity-90">
                 <h3 className="font-medium text-white">{p.title}</h3>
                 <p className="mt-1 text-sm text-neutral-400">
-                  {p.character.name} · {p.format.replaceAll("_", " ").toLowerCase()} ·{" "}
+                  {p.character?.name ?? "No character"} · {p.format.replaceAll("_", " ").toLowerCase()} ·{" "}
                   {p.shots.length} shot{p.shots.length === 1 ? "" : "s"}
                 </p>
               </a>
