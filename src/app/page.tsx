@@ -237,7 +237,7 @@ export default function Home() {
             Meet the founder
           </p>
           <div className="mx-auto mt-6 flex max-w-lg flex-col items-center gap-5 text-center">
-            <FounderAvatar size={140} />
+            <FounderAvatar size={168} />
             <div>
               <h3 className="font-display text-xl font-semibold text-white">Dheeraj Yadav</h3>
               <p className="mt-1 text-sm text-neutral-400">Founder &amp; Builder, Ad Champ</p>
