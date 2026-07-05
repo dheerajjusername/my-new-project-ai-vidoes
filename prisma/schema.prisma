@@ -176,3 +176,36 @@ enum ShotType {
   VIDEO // animated clip (Veo / Kling)
   IMAGE // still image (Ken Burns pan/zoom applied at stitch time)
 }
+
+// A credit purchase via Razorpay.
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?
+  credits           Int
+  amountPaise       Int
+  status            String   @default("created") // created | paid | failed
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+}
+
+// A one-time password-reset token (only the hash is stored).
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Fixed-window rate-limit counters keyed by e.g. "login:1.2.3.4".
+model RateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+}

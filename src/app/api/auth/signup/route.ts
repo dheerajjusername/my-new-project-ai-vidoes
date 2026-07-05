@@ -1,8 +1,13 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
+import { rateLimit, clientIp, tooManyRequests } from "@/lib/ratelimit";
 
 export async function POST(request: Request) {
+  const ip = clientIp(request);
+  // Limit fake-account creation: 5 signups per IP per hour.
+  if (!(await rateLimit(`signup:${ip}`, 5, 60 * 60))) return tooManyRequests();
+
   const body = await request.json().catch(() => null);
   const email =
     typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";

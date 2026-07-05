@@ -145,7 +145,18 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-neutral-300" htmlFor="password">
                 Password
               </label>
-              <div className="relative mt-1.5">
+              <div className="mt-1.5 mb-1 flex items-center justify-between">
+                <span className="sr-only">Password field</span>
+                {mode === "login" && (
+                  <a
+                    href="/forgot"
+                    className="ml-auto text-xs font-medium text-violet-300 hover:text-violet-200"
+                  >
+                    Forgot password?
+                  </a>
+                )}
+              </div>
+              <div className="relative">
                 <input
                   id="password"
                   type={showPw ? "text" : "password"}
