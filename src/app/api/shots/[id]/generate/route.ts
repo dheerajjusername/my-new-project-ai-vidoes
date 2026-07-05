@@ -81,6 +81,9 @@ export async function POST(
       voice: shot.project.character.voice,
       referenceImages: shot.project.character.referenceImages,
       style: shot.project.imageStyle,
+      // Motion clips get their audio from the narration voiceover, so don't
+      // pay the model to generate audio we'd discard.
+      muteVideo: shot.project.format === "MOTION_STORYTELLING",
     });
     const updated = await prisma.shot.update({
       where: { id: shot.id },

@@ -67,14 +67,19 @@ export async function generateShotVideo(input: {
   voice?: string;
   referenceImages: string[];
   style?: string | null;
+  // Force the model to NOT generate its own audio (cheaper). Used by Motion
+  // Storytelling, where a separate narration voiceover is mixed in later —
+  // Veo Lite 720p costs $0.03/s without audio vs $0.05/s with.
+  muteVideo?: boolean;
 }): Promise<{ videoUrl: string; audioUrl: string | null }> {
   const model = resolveVideoModel(input.model);
   const frameUrl = await generateFirstFrame(input.prompt, input.referenceImages, input.style);
   const hasDialogue = Boolean(input.dialogue?.trim());
   const duration = input.durationSec ?? 8;
+  const withAudio = input.muteVideo ? false : !hasDialogue;
 
   const clip = await fal.subscribe(model.endpoint, {
-    input: model.buildInput(frameUrl, input.prompt, !hasDialogue, duration),
+    input: model.buildInput(frameUrl, input.prompt, withAudio, duration),
   });
   const rawVideoUrl = (clip.data as VeoOutput).video?.url;
   if (!rawVideoUrl) throw new Error(`${model.label} returned no video`);
