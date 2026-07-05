@@ -15,6 +15,7 @@ type Shot = {
   cameraAngle: string | null;
   prompt: string;
   narrationText: string | null;
+  speaker: string | null;
   dialogue: string | null;
   status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
   videoUrl: string | null;
@@ -70,6 +71,9 @@ export default function ProjectDetailPage({
   // Talking: scene / first-frame image
   const [scenePrompt, setScenePrompt] = useState("");
   const [sceneBusy, setSceneBusy] = useState(false);
+  // Talking: dialogue script
+  const [talkingScript, setTalkingScript] = useState("");
+  const [planningTalking, setPlanningTalking] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -80,6 +84,10 @@ export default function ProjectDetailPage({
         setProject(proj);
         // Seed the narration textarea once from whatever is saved.
         setNarration((prev) => {
+          if (prev) return prev;
+          return proj.narrationScript ?? "";
+        });
+        setTalkingScript((prev) => {
           if (prev) return prev;
           return proj.narrationScript ?? "";
         });
@@ -363,6 +371,26 @@ export default function ProjectDetailPage({
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setSceneBusy(false);
+    }
+  }
+
+  // Parse the talking script into dialogue clips (shots).
+  async function planTalkingClips() {
+    setPlanningTalking(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${id}/plan-talking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: talkingScript }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      await load();
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setPlanningTalking(false);
     }
   }
 
@@ -732,10 +760,56 @@ export default function ProjectDetailPage({
               </div>
             )}
 
-            <p className="mt-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-              ⏳ Step 2 (script → dialogue clips) abhi ban raha hai — scene set
-              karke rakho, agla update aa raha hai.
-            </p>
+            {/* Step 2 — dialogue script */}
+            <div className="mt-6 border-t border-white/10 pt-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-white">
+                  Step 2 · Dialogue script
+                </label>
+                <ScriptUpload onText={setTalkingScript} label="Upload" />
+              </div>
+              <p className="mt-1 text-xs text-neutral-500">
+                Har line ke aage character ka naam likho (e.g. <b>Farmer:</b> …,
+                <b> Doctor:</b> …). Jis language me likhoge usi me bolega. AI khud
+                body language decide karega.
+              </p>
+              <textarea
+                value={talkingScript}
+                onChange={(e) => setTalkingScript(e.target.value)}
+                rows={6}
+                placeholder={"Farmer: I can't catch my breath, doctor.\nDoctor: ನಿಮ್ಮ English ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ!"}
+                className="mt-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-violet-400"
+              />
+              <button
+                onClick={planTalkingClips}
+                disabled={
+                  planningTalking ||
+                  !project.sceneImageUrl ||
+                  talkingScript.trim().length === 0 ||
+                  project.shots.some((s) => s.status !== "PENDING")
+                }
+                className="mt-3 rounded-full bg-gradient-to-r from-violet-500 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {planningTalking
+                  ? "Planning dialogue…"
+                  : project.shots.length > 0
+                    ? "Re-plan dialogue clips (3 credits)"
+                    : "Plan dialogue clips (3 credits)"}
+              </button>
+              {!project.sceneImageUrl && (
+                <p className="mt-2 text-xs text-amber-400">Pehle scene set karo (Step 1).</p>
+              )}
+              {project.shots.length > 0 && project.shots.some((s) => s.status !== "PENDING") && (
+                <p className="mt-2 text-xs text-amber-400">
+                  Re-plan karne ke liye pehle generated clips delete karo (neeche).
+                </p>
+              )}
+              <p className="mt-3 text-[11px] text-neutral-500">
+                Phir neeche har clip generate karo — AI khud check karega ki sahi
+                character bola (galat hone par apne aap regenerate). Har clip
+                Veo se banti hai (~$0.25-0.4 each).
+              </p>
+            </div>
           </div>
         )}
 
@@ -809,7 +883,7 @@ export default function ProjectDetailPage({
                     : `Generate all shots (${pendingCost} credits)`}
                 </button>
               )}
-              {!isGuided && (
+              {!isGuided && !isTalking && (
                 <button
                   onClick={generateShotList}
                   disabled={busy || project.shots.some((s) => s.status !== "PENDING")}
@@ -862,14 +936,16 @@ export default function ProjectDetailPage({
 
           {project.shots.length === 0 && !planning && (
             <p className="mt-4 text-sm text-neutral-500">
-              {isGuided
-                ? `No ${unit} yet. Complete Steps 1–3 above (narration → voiceover → plan ${unit}).`
-                : "No shots yet. Click the button above and AI will turn your brief into a scene-by-scene plan."}
+              {isTalking
+                ? "No clips yet. Set the scene and plan the dialogue above (Steps 1–2)."
+                : isGuided
+                  ? `No ${unit} yet. Complete Steps 1–3 above (narration → voiceover → plan ${unit}).`
+                  : "No shots yet. Click the button above and AI will turn your brief into a scene-by-scene plan."}
             </p>
           )}
 
-          {/* Voiceover — generic formats only (Static/Motion use their own Step 2) */}
-          {!isGuided && (
+          {/* Voiceover — generic formats only (guided/talking use their own audio) */}
+          {!isGuided && !isTalking && (
           <div className="mt-8 glass rounded-2xl p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-medium text-white">Voiceover (ElevenLabs)</h3>
@@ -938,8 +1014,8 @@ export default function ProjectDetailPage({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <span className="text-xs font-medium text-neutral-500">
-                      SHOT {shot.orderIndex + 1} · {shot.type === "IMAGE" ? "IMAGE" : "VIDEO"} ·{" "}
-                      {shot.durationSec ?? 8}s
+                      {shot.speaker ? `🎬 ${shot.speaker}` : `SHOT ${shot.orderIndex + 1}`} ·{" "}
+                      {shot.type === "IMAGE" ? "IMAGE" : "VIDEO"} · {shot.durationSec ?? 8}s
                       {shot.cameraAngle ? ` · ${shot.cameraAngle}` : ""}
                     </span>
                     <p className="mt-1 text-sm text-neutral-300">{shot.prompt}</p>
@@ -983,7 +1059,7 @@ export default function ProjectDetailPage({
                           : `${shot.status === "COMPLETED" ? "Regenerate" : shot.type === "IMAGE" ? "Generate image" : "Generate video"} (${shot.type === "IMAGE" ? 8 : modelCredits} credits)`}
                       </button>
                     )}
-                    {isGuided && shot.status !== "GENERATING" && (
+                    {(isGuided || isTalking) && shot.status !== "GENERATING" && (
                       <button
                         onClick={() => deleteShot(shot.id)}
                         disabled={busy || deletingShotId === shot.id}
@@ -991,7 +1067,7 @@ export default function ProjectDetailPage({
                       >
                         {deletingShotId === shot.id
                           ? "Deleting…"
-                          : isMotion ? "Delete clip" : "Delete image"}
+                          : isStatic ? "Delete image" : "Delete clip"}
                       </button>
                     )}
                   </div>

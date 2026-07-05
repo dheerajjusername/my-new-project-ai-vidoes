@@ -309,6 +309,70 @@ function transitionKind(transition: string | undefined, i: number): string {
 }
 
 /**
+ * Talking stitch. Concatenates the dialogue clips in order, keeping each clip's
+ * own audio (the characters' speech), normalised to the chosen aspect ratio.
+ * No trimming — each clip is exactly as long as its spoken line.
+ */
+export async function stitchTalkingVideo(input: {
+  clipUrls: string[];
+  aspectRatio?: string;
+}): Promise<string> {
+  const n = input.clipUrls.length;
+  if (n === 0) throw new Error("no clips to stitch");
+  const { w, h } = DIMS[input.aspectRatio === "9:16" ? "9:16" : "16:9"];
+  const dir = await mkdtemp(path.join(tmpdir(), "talk-"));
+  try {
+    const segFiles: string[] = [];
+    for (const [i, url] of input.clipUrls.entries()) {
+      const clip = await download(url, path.join(dir, `clip-${i}.mp4`));
+      const out = path.join(dir, `seg-${i}.mp4`);
+      await run(FFMPEG, [
+        "-y", "-v", "error",
+        "-i", clip,
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-filter_complex",
+        `[0:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
+          `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},setsar=1[v]`,
+        "-map", "[v]",
+        "-map", "0:a?", "-map", "1:a", "-shortest",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+        out,
+      ]).catch(async () => {
+        await run(FFMPEG, [
+          "-y", "-v", "error",
+          "-i", clip,
+          "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+          "-filter_complex",
+          `[0:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
+            `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},setsar=1[v]`,
+          "-map", "[v]", "-map", "1:a", "-shortest",
+          "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+          out,
+        ]);
+      });
+      segFiles.push(out);
+    }
+
+    const listFile = path.join(dir, "list.txt");
+    await writeFile(listFile, segFiles.map((p) => `file '${p}'`).join("\n"));
+    const combined = path.join(dir, "combined.mp4");
+    await run(FFMPEG, [
+      "-y", "-v", "error",
+      "-f", "concat", "-safe", "0", "-i", listFile,
+      "-c", "copy", "-movflags", "+faststart", combined,
+    ]);
+
+    const buffer = await readFile(combined);
+    const file = new File([buffer], "final.mp4", { type: "video/mp4" });
+    return await fal.storage.upload(file);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/**
  * Motion-storytelling stitch. Each Veo clip is trimmed to exactly the words it
  * illustrates (Veo returns 4/6/8s, we keep only what the narration needs), so
  * the clips change in step with the voiceover and the video length matches the

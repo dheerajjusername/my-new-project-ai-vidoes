@@ -3,7 +3,7 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
-import { stitchProjectVideo, stitchStaticVideo, stitchMotionVideo, type WordTime } from "@/lib/stitch";
+import { stitchProjectVideo, stitchStaticVideo, stitchMotionVideo, stitchTalkingVideo, type WordTime } from "@/lib/stitch";
 
 // Parse the saved voiceover word timestamps (JSON) back into an array.
 function parseWords(raw: string | null): WordTime[] | null {
@@ -51,6 +51,9 @@ export async function POST(
   const isMotion =
     project.format === "MOTION_STORYTELLING" &&
     project.shots.every((s) => s.type === "VIDEO");
+  // Talking concatenates the dialogue clips (each carries its own speech).
+  const isTalking =
+    project.format === "TALKING" && project.shots.every((s) => s.type === "VIDEO");
   if ((isStatic || isMotion) && !project.voiceoverUrl) {
     return Response.json(
       { error: "Generate the voiceover first — it sets the video's length." },
@@ -80,6 +83,11 @@ export async function POST(
           aspectRatio: project.aspectRatio,
           transition: project.transition,
           voiceoverWords: parseWords(project.voiceoverWords),
+        })
+      : isTalking
+      ? await stitchTalkingVideo({
+          clipUrls: project.shots.map((s) => s.videoUrl!),
+          aspectRatio: project.aspectRatio,
         })
       : isMotion
       ? await stitchMotionVideo({

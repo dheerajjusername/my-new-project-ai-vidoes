@@ -305,6 +305,98 @@ export async function generateMotionClips(input: {
   }));
 }
 
+const TALKING_SCRIPT_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    turns: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          speaker: {
+            type: "string" as const,
+            description: "Which character says this line, e.g. 'Farmer' or 'Doctor'. Use the same label every time that character speaks.",
+          },
+          text: {
+            type: "string" as const,
+            description: "The exact words this character speaks, kept in the SAME language/script as written in the source (English, Hindi, Kannada, etc.). Do not translate.",
+          },
+          language: {
+            type: "string" as const,
+            description: "The main language of this line, e.g. 'English', 'Hindi', 'Kannada'.",
+          },
+          bodyLanguage: {
+            type: "string" as const,
+            description: "The facial expression, gesture and body language that fits THIS specific line — chosen from its meaning (e.g. 'worried, hand on chest' or 'pleasantly surprised, eyebrows raised'). Never generic.",
+          },
+          durationSec: {
+            type: "integer" as const,
+            enum: [4, 6, 8],
+            description: "Roughly how many seconds to speak this line: 4 for short, 6 for medium, 8 for long lines.",
+          },
+        },
+        required: ["speaker", "text", "language", "bodyLanguage", "durationSec"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["turns"],
+  additionalProperties: false,
+};
+
+export type TalkingTurn = {
+  speaker: string;
+  text: string;
+  language: string;
+  bodyLanguage: string;
+  durationSec: number;
+};
+
+/**
+ * Parses a talking-video script into ordered dialogue turns. Keeps each line in
+ * its original language, and — critically — chooses a body language that fits
+ * the meaning of each specific line (not a generic "talking" pose).
+ */
+export async function parseTalkingScript(input: {
+  script: string;
+  sceneDescription: string;
+}): Promise<TalkingTurn[]> {
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 4096,
+    thinking: { type: "adaptive" },
+    system: [
+      "You convert a talking-video ad script into ordered dialogue turns for a lip-synced video.",
+      "Each turn = one character speaking one continuous piece of dialogue.",
+      "Keep every line in the EXACT language and script it was written in — never translate (English stays English, Kannada stays Kannada, etc.).",
+      "Use a consistent speaker label for each character across all their turns.",
+      "For every turn choose a body language / expression that matches the MEANING of that line specifically — a worried line looks worried, a surprised line looks surprised. Never generic.",
+      "Set durationSec to 4 (short), 6 (medium) or 8 (long) based on the line length.",
+    ].join("\n"),
+    messages: [
+      {
+        role: "user",
+        content: [
+          `SCENE: ${input.sceneDescription}`,
+          `SCRIPT:\n${input.script}`,
+          "Break it into dialogue turns now.",
+        ].join("\n\n"),
+      },
+    ],
+    output_config: { format: { type: "json_schema", schema: TALKING_SCRIPT_SCHEMA } },
+  });
+  const block = response.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("no talking plan returned");
+  const parsed = JSON.parse(block.text) as { turns: TalkingTurn[] };
+  return parsed.turns.map((t) => ({
+    speaker: t.speaker,
+    text: t.text,
+    language: t.language,
+    bodyLanguage: t.bodyLanguage,
+    durationSec: [4, 6, 8].includes(t.durationSec) ? t.durationSec : 6,
+  }));
+}
+
 export type PlannedShot = {
   type: "VIDEO" | "IMAGE";
   cameraAngle: string;

@@ -114,6 +114,64 @@ export async function generateSceneImage(input: {
 }
 
 /**
+ * TALKING dialogue clip. Animates the fixed scene image so that ONLY the
+ * speaking character talks (lip-synced) while everyone else stays silent and
+ * still. The trick that keeps the right person talking is a "primed" first
+ * frame: we first make a still where the speaker's mouth is open mid-word and
+ * the others are silent, then let Veo continue from there.
+ */
+export async function generateTalkingClip(input: {
+  sceneImageUrl: string;
+  speaker: string;
+  others: string[];
+  bodyLanguage: string;
+  line: string;
+  language: string;
+  durationSec: number;
+  aspectRatio?: string;
+  style?: string | null;
+}): Promise<string> {
+  const ar = input.aspectRatio === "9:16" ? "9:16" : "16:9";
+  const others = input.others.length > 0 ? input.others.join(" and ") : "everyone else";
+
+  // 1. Primed first frame: speaker mid-speech, others silent.
+  const primed = await fal.subscribe("fal-ai/nano-banana-2/edit", {
+    input: {
+      prompt:
+        `Using these exact people and this exact scene (same faces, same clothes, same background), ` +
+        `create a photo where ${input.speaker} is speaking — mouth open mid-word, ${input.bodyLanguage} — ` +
+        `while ${others} stay silent with mouths firmly closed, just listening. Keep everything else identical. ` +
+        `${styleDirective(input.style)}, ${ar}. ${EYES_DIRECTIVE}`,
+      image_urls: [input.sceneImageUrl],
+      aspect_ratio: ar,
+      num_images: 1,
+    },
+  });
+  const framedUrl = (primed.data as NanoBananaOutput).images[0]?.url;
+  if (!framedUrl) throw new Error("Primed frame generation returned no image");
+
+  // 2. Veo animates it — only the speaker talks, others silent, locked camera.
+  const duration = ([4, 6, 8].includes(input.durationSec) ? input.durationSec : 6) as 4 | 6 | 8;
+  const prompt =
+    `Cinematic dialogue scene, locked static camera, everyone stays in their exact positions the whole time, nobody walks or leaves the frame. ` +
+    `ONLY ${input.speaker} speaks: ${input.bodyLanguage}, lips moving naturally in perfect sync, speaking in ${input.language}: "${input.line}". ` +
+    `${others} stay COMPLETELY SILENT — mouths closed, not speaking, not moving their lips, just listening quietly with subtle natural blinking, staying still. ` +
+    `Realistic faces, natural lip-sync only for the speaker.`;
+  const clip = await fal.subscribe("fal-ai/veo3.1/lite/image-to-video", {
+    input: {
+      prompt,
+      image_url: framedUrl,
+      duration: `${duration}s` as "4s" | "6s" | "8s",
+      resolution: "720p",
+      generate_audio: true,
+    },
+  });
+  const url = (clip.data as VeoOutput).video?.url;
+  if (!url) throw new Error("Veo returned no talking clip");
+  return url;
+}
+
+/**
  * VIDEO building block. Pipeline:
  *   1. Nano Banana first frame (consistent face).
  *   2. The chosen model animates it for the shot's duration.

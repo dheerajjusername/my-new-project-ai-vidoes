@@ -114,6 +114,8 @@ model Shot {
   // For static images: the portion of the narration this image illustrates.
   // Used to time the image to exactly those words in the voiceover.
   narrationText String?
+  // For talking clips: which character speaks this line (e.g. "Farmer").
+  speaker    String?
   // Exact words the character speaks in this shot (null = no dialogue).
   // Spoken via ElevenLabs and lip-synced onto the clip with VEED.
   dialogue   String?

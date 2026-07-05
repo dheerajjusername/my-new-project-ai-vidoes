@@ -3,7 +3,8 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, unauthorized } from "@/lib/auth";
-import { generateShotVideo, generateShotImage } from "@/lib/video";
+import { generateShotVideo, generateShotImage, generateTalkingClip } from "@/lib/video";
+import { checkTalkingClip } from "@/lib/talking-qc";
 import { resolveVideoModel } from "@/lib/video-models";
 import { DEFAULT_VOICE } from "@/lib/voices";
 import {
@@ -26,7 +27,11 @@ export async function POST(
   if (!user) return unauthorized();
   const shot = await prisma.shot.findFirst({
     where: { id, project: { userId: user.id } },
-    include: { project: { include: { character: true } } },
+    include: {
+      project: {
+        include: { character: true, shots: { select: { speaker: true } } },
+      },
+    },
   });
   if (!shot) {
     return Response.json({ error: "shot not found" }, { status: 404 });
@@ -71,6 +76,49 @@ export async function POST(
         data: { status: "COMPLETED", videoUrl: imageUrl, audioUrl: null },
       });
       return Response.json({ shot: updated });
+    }
+
+    // Talking dialogue clip: animate the fixed scene so only this speaker
+    // talks, with an auto-QC + one regenerate if the wrong person speaks.
+    if (
+      shot.project.format === "TALKING" &&
+      shot.project.sceneImageUrl &&
+      shot.speaker
+    ) {
+      const allSpeakers = [
+        ...new Set(
+          shot.project.shots.map((s) => s.speaker).filter((s): s is string => Boolean(s)),
+        ),
+      ];
+      const others = allSpeakers.filter((s) => s !== shot.speaker);
+      let videoUrl = "";
+      let lastReason = "";
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        videoUrl = await generateTalkingClip({
+          sceneImageUrl: shot.project.sceneImageUrl,
+          speaker: shot.speaker,
+          others,
+          bodyLanguage: shot.prompt,
+          line: shot.dialogue ?? "",
+          language: shot.dialogueLanguage ?? "the same language",
+          durationSec: shot.durationSec ?? 6,
+          aspectRatio: shot.project.aspectRatio,
+          style: shot.project.imageStyle,
+        });
+        const qc = await checkTalkingClip({
+          videoUrl,
+          speaker: shot.speaker,
+          others,
+          durationSec: shot.durationSec ?? 6,
+        });
+        lastReason = qc.reason;
+        if (qc.ok) break; // good clip — stop; otherwise regenerate once
+      }
+      const updated = await prisma.shot.update({
+        where: { id: shot.id },
+        data: { status: "COMPLETED", videoUrl, audioUrl: null, lastError: null },
+      });
+      return Response.json({ shot: updated, qc: lastReason });
     }
 
     const { videoUrl, audioUrl } = await generateShotVideo({
