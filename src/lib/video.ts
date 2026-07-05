@@ -13,12 +13,14 @@ async function generateFirstFrame(
   prompt: string,
   referenceImages: string[],
   style?: string | null,
+  aspectRatio?: string | null,
 ): Promise<string> {
+  const ar = aspectRatio === "9:16" ? "9:16" : "16:9";
   const frame = await fal.subscribe("fal-ai/nano-banana-2/edit", {
     input: {
-      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. ${styleDirective(style)}, 16:9.`,
+      prompt: `Using the person from the reference images (same face, same look), create the opening frame of this video shot: ${prompt}. ${styleDirective(style)}, ${ar}.`,
       image_urls: referenceImages,
-      aspect_ratio: "16:9",
+      aspect_ratio: ar,
       num_images: 1,
     },
   });
@@ -67,13 +69,14 @@ export async function generateShotVideo(input: {
   voice?: string;
   referenceImages: string[];
   style?: string | null;
+  aspectRatio?: string | null;
   // Force the model to NOT generate its own audio (cheaper). Used by Motion
   // Storytelling, where a separate narration voiceover is mixed in later —
   // Veo Lite 720p costs $0.03/s without audio vs $0.05/s with.
   muteVideo?: boolean;
 }): Promise<{ videoUrl: string; audioUrl: string | null }> {
   const model = resolveVideoModel(input.model);
-  const frameUrl = await generateFirstFrame(input.prompt, input.referenceImages, input.style);
+  const frameUrl = await generateFirstFrame(input.prompt, input.referenceImages, input.style, input.aspectRatio);
   const hasDialogue = Boolean(input.dialogue?.trim());
   const duration = input.durationSec ?? 8;
   const withAudio = input.muteVideo ? false : !hasDialogue;

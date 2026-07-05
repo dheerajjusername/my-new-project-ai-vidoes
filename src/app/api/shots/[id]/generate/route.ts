@@ -81,6 +81,7 @@ export async function POST(
       voice: shot.project.character.voice,
       referenceImages: shot.project.character.referenceImages,
       style: shot.project.imageStyle,
+      aspectRatio: shot.project.aspectRatio,
       // Motion clips get their audio from the narration voiceover, so don't
       // pay the model to generate audio we'd discard.
       muteVideo: shot.project.format === "MOTION_STORYTELLING",
