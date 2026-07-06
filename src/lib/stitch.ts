@@ -308,10 +308,38 @@ function transitionKind(transition: string | undefined, i: number): string {
   return "fade";
 }
 
+// Finds when the speaking ends in a talking clip by detecting the trailing
+// silence, so we can cut the idle/dead-air tail (Veo gives 4/6/8s clips but the
+// line is often shorter). Returns seconds to keep, or the full duration if the
+// clip talks all the way through.
+async function speechDuration(clip: string, fullDur: number): Promise<number> {
+  let stderr = "";
+  try {
+    const r = await run(FFMPEG, [
+      "-i", clip,
+      "-af", "silencedetect=noise=-30dB:d=0.45",
+      "-f", "null", "-",
+    ]);
+    stderr = r.stderr ?? "";
+  } catch (e) {
+    stderr = (e as { stderr?: string }).stderr ?? "";
+  }
+  const starts = [...stderr.matchAll(/silence_start:\s*([\d.]+)/g)].map((m) => Number(m[1]));
+  const ends = [...stderr.matchAll(/silence_end:\s*([\d.]+)/g)].map((m) => Number(m[1]));
+  // A trailing silence (runs to EOF) shows as one more start than end.
+  if (starts.length > ends.length) {
+    const speechEnd = starts[starts.length - 1];
+    // Keep a short natural tail; ignore obviously-wrong tiny values.
+    if (speechEnd >= 0.8) return Math.min(fullDur, speechEnd + 0.4);
+  }
+  return fullDur;
+}
+
 /**
- * Talking stitch. Concatenates the dialogue clips in order, keeping each clip's
- * own audio (the characters' speech), normalised to the chosen aspect ratio.
- * No trimming — each clip is exactly as long as its spoken line.
+ * Talking stitch. Trims each dialogue clip to just the spoken line (cutting the
+ * silent idle tail Veo leaves), keeps each clip's own audio, normalises to the
+ * chosen aspect ratio, and concatenates them in sequence so the conversation
+ * flows tightly.
  */
 export async function stitchTalkingVideo(input: {
   clipUrls: string[];
@@ -326,10 +354,13 @@ export async function stitchTalkingVideo(input: {
     for (const [i, url] of input.clipUrls.entries()) {
       const clip = await download(url, path.join(dir, `clip-${i}.mp4`));
       const out = path.join(dir, `seg-${i}.mp4`);
+      const fullDur = (await mediaDuration(clip)) || 8;
+      const keep = await speechDuration(clip, fullDur);
       await run(FFMPEG, [
         "-y", "-v", "error",
         "-i", clip,
         "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-t", keep.toFixed(3),
         "-filter_complex",
         `[0:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
           `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},setsar=1[v]`,
@@ -343,6 +374,7 @@ export async function stitchTalkingVideo(input: {
           "-y", "-v", "error",
           "-i", clip,
           "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+          "-t", keep.toFixed(3),
           "-filter_complex",
           `[0:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
             `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},setsar=1[v]`,
